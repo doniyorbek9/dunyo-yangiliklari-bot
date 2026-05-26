@@ -11,8 +11,6 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const GROQ_KEY = process.env.GROQ_KEY;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const AUTO_INTERVAL = process.env.AUTO_INTERVAL || "0 */2 * * *";
-const DIGEST_TIME = process.env.DIGEST_TIME || "0 21 * * *";
 
 let sentToday = 0;
 let lastSent = null;
@@ -25,9 +23,12 @@ const settings = {
   kunuz: true,
   daryo: true,
   newsapi: true,
-  interval: "0 */2 * * *",
-  digestTime: "21:00",
+  interval: 2,
+  digestHour: 21,
 };
+
+let newsCronJob = null;
+let digestCronJob = null;
 
 function addLog(type, msg) {
   const time = new Date().toLocaleTimeString("uz-UZ");
@@ -48,6 +49,25 @@ function getHashtags(category) {
   return map[category] || "#dunyo #yangilik";
 }
 
+function startCronJobs() {
+  if (newsCronJob) newsCronJob.stop();
+  if (digestCronJob) digestCronJob.stop();
+
+  const newsPattern = `0 */${settings.interval} * * *`;
+  newsCronJob = cron.schedule(newsPattern, () => {
+    addLog("info", `Avtomatik yangilik (har ${settings.interval} soat)...`);
+    runCycle();
+  });
+
+  const digestPattern = `0 ${settings.digestHour} * * *`;
+  digestCronJob = cron.schedule(digestPattern, () => {
+    addLog("info", `Digest vaqti (${settings.digestHour}:00)...`);
+    runDigest();
+  });
+
+  addLog("info", `Jadval: har ${settings.interval} soat | Digest: ${settings.digestHour}:00`);
+}
+
 async function fetchNewsAPI() {
   if (!settings.newsapi) return [];
   try {
@@ -65,7 +85,7 @@ async function fetchNewsAPI() {
         source: a.source?.name || "NewsAPI",
       }));
   } catch(e) {
-    addLog("warn", "NewsAPI xato: " + e.message);
+    addLog("warn", "NewsAPI: " + e.message);
     return [];
   }
 }
@@ -85,7 +105,7 @@ async function fetchRSS(url, sourceName) {
       return { title, description: cleanDesc, url: link, imageUrl: img, source: sourceName };
     }).filter(a => a.title && !sentTitles.has(a.title));
   } catch(e) {
-    addLog("warn", `${sourceName} xato: ` + e.message);
+    addLog("warn", `${sourceName}: ` + e.message);
     return [];
   }
 }
@@ -95,65 +115,77 @@ async function fetchAllNews() {
   if (settings.kunuz) promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz"));
   if (settings.daryo) promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz"));
   if (settings.newsapi) promises.push(fetchNewsAPI());
-
   const results = await Promise.all(promises);
   const all = results.flat();
   if (all.length === 0) throw new Error("Hech qaysi manbadan yangilik topilmadi");
-
   const uzNews = all.filter(n => n.source === "Kun.uz" || n.source === "Daryo.uz");
   const pool = uzNews.length > 0 ? uzNews : all;
   return pool[Math.floor(Math.random() * Math.min(5, pool.length))];
 }
 
-async function translateWithGroq(news) {
-  const isUzbek = news.source === "Kun.uz" || news.source === "Daryo.uz";
-  const prompt = isUzbek
-    ? `Bu o'zbek tilidagi yangilikni Telegram post qilib chiqar. Sarlavhani *bold* qil, 3-4 jumla, 1-2 emoji. Manba oxirida: "📎 ${news.source}". Faqat JSON: {"text":"...","category":"dunyo|sport|iqtisodiyot|siyosat|texnologiya|salomatlik"}
-Sarlavha: ${news.title}
-Tavsif: ${news.description}`
-    : `Bu inglizcha yangilikni o'zbekchaga tarjima qil, Telegram post qilib chiqar. Sarlavhani *bold* qil, 3-4 jumla, 1-2 emoji. Manba oxirida: "📎 ${news.source}". Faqat JSON: {"text":"...","category":"dunyo|sport|iqtisodiyot|siyosat|texnologiya|salomatlik"}
-Sarlavha: ${news.title}
-Tavsif: ${news.description}`;
-
+async function groqRequest(prompt, maxTokens = 600) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${GROQ_KEY}`,
+    },
     body: JSON.stringify({
       model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens: 600,
+      max_tokens: maxTokens,
     }),
   });
   const data = await res.json();
   if (!data.choices) throw new Error("Groq: " + JSON.stringify(data));
-  const raw = data.choices[0].message.content.replace(/```json|```/g, "").trim();
-  return JSON.parse(raw);
+  return data.choices[0].message.content.trim();
+}
+
+async function translateWithGroq(news) {
+  const isUzbek = news.source === "Kun.uz" || news.source === "Daryo.uz";
+
+  const prompt = `Sen Telegram kanal uchun yangilik yozuvchisan. ${isUzbek ? "Quyidagi o'zbek tilidagi yangilikni" : "Quyidagi inglizcha yangilikni o'zbekchaga tarjima qilib"} Telegram post qilib chiqar.
+
+Sarlavha: ${news.title}
+Tavsif: ${news.description}
+
+MUHIM QOIDALAR:
+1. Sarlavhani *yulduzcha* ichida yoz: *Sarlavha matni*
+2. 3-4 jumla yoz, qisqa va tushunarli
+3. 1-2 ta mos emoji qo'sh
+4. Oxirida manba: "📎 Manba: ${news.source}"
+5. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya yoki salomatlik
+
+FAQAT quyidagi JSON formatda javob ber, boshqa hech narsa yozma:
+{"text": "post matni bu yerga", "category": "kategoriya"}`;
+
+  const raw = await groqRequest(prompt, 600);
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("JSON topilmadi: " + raw.slice(0, 100));
+  return JSON.parse(jsonMatch[0]);
 }
 
 async function generateDigest() {
   if (dailyNews.length === 0) throw new Error("Bugun hech narsa yuborilmagan");
-  const list = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
   const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
+  const list = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
 
-  const prompt = `Quyidagi yangiliklardan bugungi kun yakuniy digestini yoz. O'zbek tilida, qiziqarli va informativ. Har bir yangilikning asosiy mohiyatini 1-2 jumlada yoz. Sarlavha: "📰 *Bugun nimalar bo'ldi? — ${today}*". Heshteg oxirida: #digest #bugun. Jami 15-20 jumla.
+  const prompt = `Sen O'zbek Telegram kanali uchun kun yakunini yozuvchisan.
 
-Yangiliklar:
-${list}`;
+Bugun yuborilgan yangiliklar:
+${list}
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
-    body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.8,
-      max_tokens: 1500,
-    }),
-  });
-  const data = await res.json();
-  if (!data.choices) throw new Error("Groq digest: " + JSON.stringify(data));
-  return data.choices[0].message.content.trim();
+Quyidagi formatda "Bugun nimalar bo'ldi?" digest yoz:
+- Sarlavha: "📰 *Bugun nimalar bo'ldi? — ${today}*"
+- Har bir yangilikni 1-2 jumlada qiziqarli tarzda yoz
+- O'zbek tilida yoz
+- Umumiy 15-20 jumla
+- Oxirida: #digest #bugunyangiliklari
+
+Faqat tayyor post matnini yoz, boshqa izoh yozma.`;
+
+  return await groqRequest(prompt, 1500);
 }
 
 async function sendToTelegram(text, imageUrl) {
@@ -228,23 +260,10 @@ async function runDigest() {
   }
 }
 
-// Har kuni yarim tunda kunlik hisobni nollash
 cron.schedule("0 0 * * *", () => {
   sentToday = 0;
   dailyNews.length = 0;
-  addLog("info", "Yangi kun boshlandi, hisoblar nollandi");
-});
-
-// Yangilik yuborish
-cron.schedule(AUTO_INTERVAL, () => {
-  addLog("info", "Avtomatik yangilik...");
-  runCycle();
-});
-
-// Kun digest 21:00
-cron.schedule(DIGEST_TIME, () => {
-  addLog("info", "Digest vaqti keldi...");
-  runDigest();
+  addLog("info", "Yangi kun — hisoblar nollandi");
 });
 
 app.get("/api/status", (req, res) => {
@@ -255,8 +274,6 @@ app.get("/api/status", (req, res) => {
     newsApi: NEWS_API_KEY ? "✅" : "❌",
     bot: BOT_TOKEN ? "✅" : "❌",
     sentToday, lastSent, isRunning,
-    autoInterval: AUTO_INTERVAL,
-    digestTime: DIGEST_TIME,
     sentCount: sentTitles.size,
     dailyCount: dailyNews.length,
     settings,
@@ -279,11 +296,18 @@ app.post("/api/send-custom", async (req, res) => {
 });
 
 app.post("/api/settings", (req, res) => {
-  const { kunuz, daryo, newsapi } = req.body;
+  const { kunuz, daryo, newsapi, interval, digestHour } = req.body;
   if (typeof kunuz === "boolean") settings.kunuz = kunuz;
   if (typeof daryo === "boolean") settings.daryo = daryo;
   if (typeof newsapi === "boolean") settings.newsapi = newsapi;
-  addLog("info", `Sozlamalar saqlandi: kun.uz=${settings.kunuz} daryo=${settings.daryo} newsapi=${settings.newsapi}`);
+  if (interval && [1, 2, 3, 4, 6, 8, 12].includes(Number(interval))) {
+    settings.interval = Number(interval);
+  }
+  if (digestHour && digestHour >= 18 && digestHour <= 23) {
+    settings.digestHour = Number(digestHour);
+  }
+  startCronJobs();
+  addLog("info", `Sozlamalar saqlandi: ${settings.interval}s | digest ${settings.digestHour}:00`);
   res.json({ ok: true, settings });
 });
 
@@ -291,7 +315,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   addLog("ok", `Server: http://localhost:${PORT}`);
   addLog("info", `Kanal: ${CHANNEL_ID}`);
-  addLog("info", `Jadval: ${AUTO_INTERVAL}`);
-  addLog("info", `Digest: ${DIGEST_TIME}`);
+  startCronJobs();
   addLog("info", "Manbalar: Kun.uz + Daryo.uz + NewsAPI");
 });

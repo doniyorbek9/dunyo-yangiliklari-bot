@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dunyo Yangiliklari Bot</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0e1117;color:#e0e0e0;min-height:100vh}
+.topbar{background:#161b22;border-bottom:1px solid #30363d;padding:14px 24px;display:flex;align-items:center;gap:10px}
+.topbar h1{font-size:15px;font-weight:600;color:#fff}
+.topbar .ch{font-size:12px;color:#2AABEE;margin-left:4px}
+.dot{width:8px;height:8px;border-radius:50%;background:#3fb950;flex-shrink:0;box-shadow:0 0 6px #3fb950}
+.dot.off{background:#f85149;box-shadow:0 0 6px #f85149}
+.wrap{max-width:860px;margin:0 auto;padding:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
+.stat-val{font-size:22px;font-weight:700;color:#fff;margin-bottom:2px}
+.stat-lbl{font-size:11px;color:#8b949e}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:12px}
+input,textarea{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:9px 12px;font-size:13px;color:#e6edf3;font-family:inherit;outline:none;transition:border .2s}
+input:focus,textarea:focus{border-color:#2AABEE}
+textarea{min-height:80px;resize:vertical;margin-bottom:10px}
+input{margin-bottom:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.btn-blue{background:#238636;color:#fff}
+.btn-blue:hover{background:#2ea043}
+.btn-blue:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
+.btn-gray{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+.btn-gray:hover{background:#30363d}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chip{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #30363d;background:#0d1117;color:#8b949e}
+.chip.ok{background:#0d2a0d;border-color:#238636;color:#3fb950}
+.chip.err{background:#2a0d0d;border-color:#6e2222;color:#f85149}
+.log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;font-family:'Courier New',monospace;font-size:11px;min-height:140px;max-height:200px;overflow-y:auto}
+.log .ok{color:#3fb950}
+.log .err{color:#f85149}
+.log .info{color:#79c0ff}
+.log .warn{color:#e3b341}
+.log .time{color:#484f58}
+.result-box{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;font-size:13px;margin-top:10px;white-space:pre-wrap;line-height:1.6;display:none;color:#e6edf3}
+.result-box.ok{border-color:#238636;color:#3fb950}
+.result-box.err{border-color:#6e2222;color:#f85149}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="dot" id="main-dot"></div>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
+  <h1>Dunyo Yangiliklari Bot</h1>
+  <span class="ch" id="ch-name">@dunyo_yangiliklari_1_1</span>
+</div>
+
+<div class="wrap">
+  <div class="chips" id="chips"></div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="s-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
+    <div class="stat"><div class="stat-val" id="s-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
+    <div class="stat"><div class="stat-val" id="s-interval">—</div><div class="stat-lbl">Avtomatik</div></div>
+    <div class="stat"><div class="stat-val" id="s-status">—</div><div class="stat-lbl">Bot holati</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🤖 AI bilan avtomatik yangilik yuborish</div>
+    <p style="font-size:12px;color:#8b949e;margin-bottom:12px">Gemini AI dunyo yangiligini topib, o'zbekchaga o'girib, kanalga yuboradi.</p>
+    <button class="btn btn-blue" id="ai-btn" onclick="sendAI()">
+      <span id="ai-icon">⚡</span> Hozir yuborish
+    </button>
+    <div class="result-box" id="ai-result"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✏️ O'z matnimni yuborish</div>
+    <textarea id="my-text" placeholder="🌍 *Yangilik sarlavhasi*&#10;&#10;Bu yerga matn yozing..."></textarea>
+    <input id="my-img" type="text" placeholder="Rasm URL (ixtiyoriy): https://...">
+    <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
+    <div id="custom-res" style="font-size:12px;margin-top:8px;color:#8b949e"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Jurnal</div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+async function loadStatus() {
+  try {
+    const d = await fetch('/api/status').then(r=>r.json());
+    document.getElementById('s-sent').textContent = d.sentToday;
+    document.getElementById('s-interval').textContent = d.autoInterval;
+    document.getElementById('s-status').textContent = d.isRunning ? '⏳ Band' : '✅ Tayyor';
+    document.getElementById('s-last').textContent = d.lastSent
+      ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
+    document.getElementById('main-dot').className = 'dot ' + (d.ok ? '' : 'off');
+    document.getElementById('chips').innerHTML = [
+      {l:'Bot: '+d.bot, ok:d.bot==='✅'},
+      {l:'Kanal: '+d.channel, ok:!!d.channel},
+      {l:'Gemini: '+d.gemini, ok:d.gemini==='✅'},
+      {l:'NewsAPI: '+d.newsApi, ok:d.newsApi==='✅'},
+    ].map(c=>`<span class="chip ${c.ok?'ok':'err'}">${c.l}</span>`).join('');
+    if (d.logs) renderLog(d.logs);
+  } catch(e) {}
+}
+
+function renderLog(logs) {
+  document.getElementById('log').innerHTML = logs.map(l=>
+    `<div><span class="time">[${l.time}]</span> <span class="${l.type}">${l.msg}</span></div>`
+  ).join('') || '<span style="color:#484f58">Jurnal bo\'sh...</span>';
+}
+
+async function sendAI() {
+  const btn = document.getElementById('ai-btn');
+  const icon = document.getElementById('ai-icon');
+  const box = document.getElementById('ai-result');
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spin"></span>';
+  box.style.display = 'block';
+  box.className = 'result-box';
+  box.textContent = '⏳ AI yangilik qidiryapti...';
+  try {
+    const d = await fetch('/api/send-now',{method:'POST'}).then(r=>r.json());
+    if (d.ok) {
+      box.className = 'result-box ok';
+      box.textContent = '✅ Muvaffaqiyatli yuborildi!\n\n' + d.text;
+    } else {
+      box.className = 'result-box err';
+      box.textContent = '❌ Xato: ' + d.error;
+    }
+  } catch(e) {
+    box.className = 'result-box err';
+    box.textContent = '❌ Server xatosi';
+  }
+  icon.textContent = '⚡';
+  btn.disabled = false;
+  loadStatus();
+}
+
+async function sendCustom() {
+  const text = document.getElementById('my-text').value.trim();
+  const imageUrl = document.getElementById('my-img').value.trim();
+  const res = document.getElementById('custom-res');
+  if (!text) { res.textContent = '❌ Matn yozing!'; return; }
+  res.textContent = '⏳ Yuborilmoqda...';
+  try {
+    const d = await fetch('/api/send-custom',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text, imageUrl})
+    }).then(r=>r.json());
+    res.style.color = d.ok ? '#3fb950' : '#f85149';
+    res.textContent = d.ok ? '✅ Yuborildi!' : '❌ ' + (d.description || d.error);
+  } catch(e) { res.textContent = '❌ Xato'; }
+  loadStatus();
+}
+
+loadStatus();
+setInterval(loadStatus, 15000);
+</script>
+</body>
+</html>

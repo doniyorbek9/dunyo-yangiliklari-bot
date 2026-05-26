@@ -5,39 +5,8 @@ require("dotenv").config();
 
 const app = express();
 app.use(express.json());
-
-// ── Login himoyasi ──────────────────────────────────────────────
-const LOGIN = "admin";
-const PASSWORD = "habar123";
-const sessions = new Set();
-
-function authMiddleware(req, res, next) {
-  const token = req.headers["x-auth-token"] || req.query.token;
-  if (sessions.has(token)) return next();
-  res.status(401).json({ ok: false, error: "Kirish talab etiladi" });
-}
-
-app.post("/api/login", (req, res) => {
-  const { login, password } = req.body;
-  if (login === LOGIN && password === PASSWORD) {
-    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    sessions.add(token);
-    res.json({ ok: true, token });
-  } else {
-    res.json({ ok: false, error: "Login yoki parol noto'g'ri" });
-  }
-});
-
-app.use("/api/status", (req, res, next) => {
-  const token = req.headers["x-auth-token"] || req.query.token;
-  if (sessions.has(token)) return next();
-  res.status(401).json({ ok: false, error: "Kirish talab etiladi" });
-});
-
-// Static fayllar login tekshiruvsiz (index.html uchun)
 app.use(express.static("public"));
 
-// ── O'zgaruvchilar ──────────────────────────────────────────────
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const GROQ_KEY = process.env.GROQ_KEY;
@@ -46,8 +15,6 @@ const NEWS_API_KEY = process.env.NEWS_API_KEY;
 let sentToday = 0;
 let lastSent = null;
 let isRunning = false;
-let botPaused = false;       // To'xtatilgan holat
-let scheduleMode = "normal"; // "normal" | "every1h"
 const logs = [];
 const sentTitles = new Set();
 const dailyNews = [];
@@ -56,17 +23,12 @@ const settings = {
   kunuz: true,
   daryo: true,
   newsapi: true,
-  bbcuz: true,
-  gazetauz: true,
-  xabaruz: true,
-  podrobno: true,
   interval: 2,
   digestHour: 21,
 };
 
 let newsCronJob = null;
 let digestCronJob = null;
-let every1hJob = null;
 
 function addLog(type, msg) {
   const time = new Date().toLocaleTimeString("uz-UZ");
@@ -75,7 +37,6 @@ function addLog(type, msg) {
   console.log(`[${type.toUpperCase()}] ${msg}`);
 }
 
-// ── Kiziqarli sarlavha uchun emoji va qo'shimcha so'zlar ──────
 function getHashtags(category) {
   const map = {
     sport: "#sport #yangilik",
@@ -88,24 +49,18 @@ function getHashtags(category) {
   return map[category] || "#dunyo #yangilik";
 }
 
-// ── Cron ────────────────────────────────────────────────────────
 function startCronJobs() {
   if (newsCronJob) newsCronJob.stop();
   if (digestCronJob) digestCronJob.stop();
-  if (every1hJob) { every1hJob.stop(); every1hJob = null; }
-
-  scheduleMode = "normal";
 
   const newsPattern = `0 */${settings.interval} * * *`;
   newsCronJob = cron.schedule(newsPattern, () => {
-    if (botPaused) return addLog("info", "Bot to'xtatilgan, o'tkazib yuborildi");
     addLog("info", `Avtomatik yangilik (har ${settings.interval} soat)...`);
     runCycle();
   });
 
   const digestPattern = `0 ${settings.digestHour} * * *`;
   digestCronJob = cron.schedule(digestPattern, () => {
-    if (botPaused) return;
     addLog("info", `Digest vaqti (${settings.digestHour}:00)...`);
     runDigest();
   });
@@ -113,20 +68,6 @@ function startCronJobs() {
   addLog("info", `Jadval: har ${settings.interval} soat | Digest: ${settings.digestHour}:00`);
 }
 
-function startEvery1h() {
-  if (newsCronJob) newsCronJob.stop();
-  if (every1hJob) every1hJob.stop();
-
-  scheduleMode = "every1h";
-  every1hJob = cron.schedule("0 * * * *", () => {
-    if (botPaused) return addLog("info", "Bot to'xtatilgan");
-    addLog("info", "Har soatlik avtomatik yangilik...");
-    runCycle();
-  });
-  addLog("info", "Rejim: har 1 soatda yuborish yoqildi");
-}
-
-// ── Manbalar ────────────────────────────────────────────────────
 async function fetchNewsAPI() {
   if (!settings.newsapi) return [];
   try {
@@ -142,7 +83,6 @@ async function fetchNewsAPI() {
         url: a.url,
         imageUrl: a.urlToImage || null,
         source: a.source?.name || "NewsAPI",
-        lang: "en",
       }));
   } catch(e) {
     addLog("warn", "NewsAPI: " + e.message);
@@ -150,12 +90,9 @@ async function fetchNewsAPI() {
   }
 }
 
-async function fetchRSS(url, sourceName, lang = "uz") {
+async function fetchRSS(url, sourceName) {
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
+    const res = await fetch(url, { timeout: 8000 });
     const xml = await res.text();
     const items = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
     return items.slice(0, 15).map(item => {
@@ -165,7 +102,7 @@ async function fetchRSS(url, sourceName, lang = "uz") {
       const img = item.match(/<enclosure[^>]+url="([^"]+)"/)?.[1] ||
                   item.match(/<media:content[^>]+url="([^"]+)"/)?.[1] || null;
       const cleanDesc = desc.replace(/<[^>]+>/g, "").trim().slice(0, 300);
-      return { title, description: cleanDesc, url: link, imageUrl: img, source: sourceName, lang };
+      return { title, description: cleanDesc, url: link, imageUrl: img, source: sourceName };
     }).filter(a => a.title && !sentTitles.has(a.title));
   } catch(e) {
     addLog("warn", `${sourceName}: ` + e.message);
@@ -175,26 +112,18 @@ async function fetchRSS(url, sourceName, lang = "uz") {
 
 async function fetchAllNews() {
   const promises = [];
-  if (settings.kunuz)    promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz", "uz"));
-  if (settings.daryo)    promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz", "uz"));
-  if (settings.bbcuz)    promises.push(fetchRSS("https://feeds.bbci.co.uk/uzbek/rss.xml", "BBC Uzbek", "uz"));
-  if (settings.gazetauz) promises.push(fetchRSS("https://www.gazeta.uz/rss/", "Gazeta.uz", "uz"));
-  if (settings.xabaruz)  promises.push(fetchRSS("https://xabar.uz/feed", "Xabar.uz", "uz"));
-  if (settings.podrobno) promises.push(fetchRSS("https://podrobno.uz/rss.xml", "Podrobno.uz", "ru"));
-  if (settings.newsapi)  promises.push(fetchNewsAPI());
-
+  if (settings.kunuz) promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz"));
+  if (settings.daryo) promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz"));
+  if (settings.newsapi) promises.push(fetchNewsAPI());
   const results = await Promise.all(promises);
   const all = results.flat();
   if (all.length === 0) throw new Error("Hech qaysi manbadan yangilik topilmadi");
-
-  // O'zbek/RU manbalarni afzal ko'r
-  const uzNews = all.filter(n => ["Kun.uz","Daryo.uz","BBC Uzbek","Gazeta.uz","Xabar.uz","Podrobno.uz"].includes(n.source));
+  const uzNews = all.filter(n => n.source === "Kun.uz" || n.source === "Daryo.uz");
   const pool = uzNews.length > 0 ? uzNews : all;
   return pool[Math.floor(Math.random() * Math.min(5, pool.length))];
 }
 
-// ── Groq AI ─────────────────────────────────────────────────────
-async function groqRequest(prompt, maxTokens = 700) {
+async function groqRequest(prompt, maxTokens = 600) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -204,7 +133,7 @@ async function groqRequest(prompt, maxTokens = 700) {
     body: JSON.stringify({
       model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.8,
+      temperature: 0.7,
       max_tokens: maxTokens,
     }),
   });
@@ -214,34 +143,24 @@ async function groqRequest(prompt, maxTokens = 700) {
 }
 
 async function translateWithGroq(news) {
-  const isUzbek = ["Kun.uz","Daryo.uz","BBC Uzbek","Gazeta.uz","Xabar.uz"].includes(news.source);
-  const isRussian = news.source === "Podrobno.uz";
+  const isUzbek = news.source === "Kun.uz" || news.source === "Daryo.uz";
 
-  const langNote = isUzbek
-    ? "Quyidagi o'zbek tilidagi yangilikni"
-    : isRussian
-    ? "Quyidagi rus tilidagi yangilikni o'zbekchaga tarjima qilib"
-    : "Quyidagi inglizcha yangilikni o'zbekchaga tarjima qilib";
-
-  const prompt = `Sen Telegram kanal uchun qiziqarli yangilik yozuvchisan. ${langNote} Telegram post qilib chiqar.
+  const prompt = `Sen Telegram kanal uchun yangilik yozuvchisan. ${isUzbek ? "Quyidagi o'zbek tilidagi yangilikni" : "Quyidagi inglizcha yangilikni o'zbekchaga tarjima qilib"} Telegram post qilib chiqar.
 
 Sarlavha: ${news.title}
 Tavsif: ${news.description}
 
 MUHIM QOIDALAR:
 1. Sarlavhani *yulduzcha* ichida yoz: *Sarlavha matni*
-   - Sarlavha JUDA QIZIQARLI, hayratlanarli yoki shoshilinch tuyulishi kerak
-   - Masalan: "😱 Dunyo larzaga keldi!", "🔥 Kutilmagan voqea!", "⚡ Shoshilinch xabar!" kabi boshla
-   - Sarlavhada kuchli his-tuyg'u uyg'otuvchi so'zlar ishlatl
 2. 3-4 jumla yoz, qisqa va tushunarli
-3. 2-3 ta mos emoji qo'sh
-4. Oxirida: "📎 Manba: ${news.source}"
+3. 1-2 ta mos emoji qo'sh
+4. Oxirida manba: "📎 Manba: ${news.source}"
 5. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya yoki salomatlik
 
 FAQAT quyidagi JSON formatda javob ber, boshqa hech narsa yozma:
 {"text": "post matni bu yerga", "category": "kategoriya"}`;
 
-  const raw = await groqRequest(prompt, 700);
+  const raw = await groqRequest(prompt, 600);
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("JSON topilmadi: " + raw.slice(0, 100));
   return JSON.parse(jsonMatch[0]);
@@ -269,7 +188,6 @@ Faqat tayyor post matnini yoz, boshqa izoh yozma.`;
   return await groqRequest(prompt, 1500);
 }
 
-// ── Telegram ─────────────────────────────────────────────────────
 async function sendToTelegram(text, imageUrl) {
   if (imageUrl) {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
@@ -289,7 +207,6 @@ async function sendToTelegram(text, imageUrl) {
   return res.json();
 }
 
-// ── Asosiy sikl ──────────────────────────────────────────────────
 async function runCycle() {
   if (isRunning) return { ok: false, error: "Jarayon band, kuting..." };
   isRunning = true;
@@ -343,15 +260,13 @@ async function runDigest() {
   }
 }
 
-// Har kuni nollash
 cron.schedule("0 0 * * *", () => {
   sentToday = 0;
   dailyNews.length = 0;
   addLog("info", "Yangi kun — hisoblar nollandi");
 });
 
-// ── API endpointlar ──────────────────────────────────────────────
-app.get("/api/status", authMiddleware, (req, res) => {
+app.get("/api/status", (req, res) => {
   res.json({
     ok: true,
     channel: CHANNEL_ID,
@@ -359,8 +274,6 @@ app.get("/api/status", authMiddleware, (req, res) => {
     newsApi: NEWS_API_KEY ? "✅" : "❌",
     bot: BOT_TOKEN ? "✅" : "❌",
     sentToday, lastSent, isRunning,
-    botPaused,
-    scheduleMode,
     sentCount: sentTitles.size,
     dailyCount: dailyNews.length,
     settings,
@@ -368,51 +281,10 @@ app.get("/api/status", authMiddleware, (req, res) => {
   });
 });
 
-app.post("/api/send-now", authMiddleware, async (req, res) => res.json(await runCycle()));
-app.post("/api/digest-now", authMiddleware, async (req, res) => res.json(await runDigest()));
+app.post("/api/send-now", async (req, res) => res.json(await runCycle()));
+app.post("/api/digest-now", async (req, res) => res.json(await runDigest()));
 
-app.post("/api/pause", authMiddleware, (req, res) => {
-  botPaused = true;
-  addLog("warn", "Bot to'xtatildi ⏸");
-  res.json({ ok: true, botPaused });
-});
-
-app.post("/api/resume-tomorrow", authMiddleware, (req, res) => {
-  // Ertasi kuni ertalab 08:00 da qayta yoqish
-  const now = new Date();
-  const tomorrow8 = new Date(now);
-  tomorrow8.setDate(tomorrow8.getDate() + 1);
-  tomorrow8.setHours(8, 0, 0, 0);
-  const msUntil = tomorrow8 - now;
-
-  botPaused = true;
-  addLog("warn", `Bot to'xtatildi. Ertaga 08:00 da qayta yoqiladi (${Math.round(msUntil/3600000)} soatdan so'ng)`);
-
-  setTimeout(() => {
-    botPaused = false;
-    addLog("ok", "Bot ertadan boshlab qayta yoqildi ▶️");
-  }, msUntil);
-
-  res.json({ ok: true, resumeAt: tomorrow8.toISOString() });
-});
-
-app.post("/api/resume", authMiddleware, (req, res) => {
-  botPaused = false;
-  addLog("ok", "Bot qayta yoqildi ▶️");
-  res.json({ ok: true, botPaused });
-});
-
-app.post("/api/schedule-every1h", authMiddleware, (req, res) => {
-  startEvery1h();
-  res.json({ ok: true, scheduleMode: "every1h" });
-});
-
-app.post("/api/schedule-normal", authMiddleware, (req, res) => {
-  startCronJobs();
-  res.json({ ok: true, scheduleMode: "normal" });
-});
-
-app.post("/api/send-custom", authMiddleware, async (req, res) => {
+app.post("/api/send-custom", async (req, res) => {
   const { text, imageUrl } = req.body;
   if (!text) return res.json({ ok: false, error: "Matn kerak" });
   try {
@@ -423,15 +295,11 @@ app.post("/api/send-custom", authMiddleware, async (req, res) => {
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
 
-app.post("/api/settings", authMiddleware, (req, res) => {
-  const { kunuz, daryo, newsapi, bbcuz, gazetauz, xabaruz, podrobno, interval, digestHour } = req.body;
+app.post("/api/settings", (req, res) => {
+  const { kunuz, daryo, newsapi, interval, digestHour } = req.body;
   if (typeof kunuz === "boolean") settings.kunuz = kunuz;
   if (typeof daryo === "boolean") settings.daryo = daryo;
   if (typeof newsapi === "boolean") settings.newsapi = newsapi;
-  if (typeof bbcuz === "boolean") settings.bbcuz = bbcuz;
-  if (typeof gazetauz === "boolean") settings.gazetauz = gazetauz;
-  if (typeof xabaruz === "boolean") settings.xabaruz = xabaruz;
-  if (typeof podrobno === "boolean") settings.podrobno = podrobno;
   if (interval && [1, 2, 3, 4, 6, 8, 12].includes(Number(interval))) {
     settings.interval = Number(interval);
   }
@@ -448,5 +316,5 @@ app.listen(PORT, () => {
   addLog("ok", `Server: http://localhost:${PORT}`);
   addLog("info", `Kanal: ${CHANNEL_ID}`);
   startCronJobs();
-  addLog("info", "Manbalar: Kun.uz + Daryo.uz + BBC Uzbek + Gazeta.uz + Xabar.uz + Podrobno.uz + NewsAPI");
+  addLog("info", "Manbalar: Kun.uz + Daryo.uz + NewsAPI");
 });

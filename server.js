@@ -256,7 +256,7 @@ async function sendToTelegram(text, imageUrl) {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
+      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "HTML" }),
     });
     const d = await res.json();
     if (!d.ok) return sendToTelegram(text, null);
@@ -265,7 +265,7 @@ async function sendToTelegram(text, imageUrl) {
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
+    body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "HTML" }),
   });
   return res.json();
 }

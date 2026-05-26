@@ -9,7 +9,7 @@ app.use(express.static("public"));
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
-const GEMINI_KEY = process.env.GEMINI_KEY;
+const GROQ_KEY = process.env.GROQ_KEY;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const AUTO_INTERVAL = process.env.AUTO_INTERVAL || "0 */2 * * *";
 
@@ -41,40 +41,39 @@ async function fetchNews() {
   };
 }
 
-async function translateWithGemini(news) {
-  const prompt = `Quyidagi yangilikni o'zbek tiliga tarjima qil va Telegram post qil.
+async function translateWithGroq(news) {
+  const prompt = `Quyidagi yangilikni o'zbek tiliga tarjima qil va Telegram post tayyorla.
 
-Yangilik:
 Sarlavha: ${news.title}
 Tavsif: ${news.description}
 Manba: ${news.source}
-Havola: ${news.url}
 
 Qoidalar:
-- Faqat o'zbek tilida yoz
-- 3-5 jumla, qisqa va tushunarli
-- Sarlavhani bold qil: *Sarlavha*
-- 1-2 ta mos emoji qo'sh
-- Oxirida: "📎 Manba: ${news.source}" qo'sh
-- Faqat JSON qaytar, boshqa hech narsa yozma
+- Faqat o'zbek tilida
+- 3-4 jumla, qisqa
+- Sarlavhani bold: *Sarlavha*
+- 1-2 emoji qo'sh
+- Oxirida: "📎 Manba: ${news.source}"
+- Faqat JSON qaytar
 
-JSON format:
-{"text": "telegram post matni", "category": "dunyo"}`;
+{"text": "post matni", "category": "dunyo"}`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
-      }),
-    }
-  );
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${GROQ_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 500,
+    }),
+  });
   const data = await res.json();
-  if (!data.candidates) throw new Error("Gemini javob bermadi: " + JSON.stringify(data));
-  const raw = data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
+  if (!data.choices) throw new Error("Groq javob bermadi: " + JSON.stringify(data));
+  const raw = data.choices[0].message.content.replace(/```json|```/g, "").trim();
   return JSON.parse(raw);
 }
 
@@ -83,29 +82,16 @@ async function sendToTelegram(text, imageUrl) {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: CHANNEL_ID,
-        photo: imageUrl,
-        caption: text,
-        parse_mode: "Markdown",
-      }),
+      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
     });
     const d = await res.json();
-    if (!d.ok) {
-      addLog("warn", "Rasm yuborib bo'lmadi, matnsiz urinilmoqda...");
-      return sendToTelegram(text, null);
-    }
+    if (!d.ok) return sendToTelegram(text, null);
     return d;
   } else {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: CHANNEL_ID,
-        text,
-        parse_mode: "Markdown",
-        disable_web_page_preview: false,
-      }),
+      body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
     });
     return res.json();
   }
@@ -118,8 +104,8 @@ async function runCycle() {
     addLog("info", "Yangilik qidirilmoqda...");
     const news = await fetchNews();
     addLog("info", "Topildi: " + news.title.slice(0, 60));
-    addLog("info", "Gemini tarjima qilmoqda...");
-    const translated = await translateWithGemini(news);
+    addLog("info", "Groq tarjima qilmoqda...");
+    const translated = await translateWithGroq(news);
     addLog("info", "Telegramga yuborilmoqda...");
     const result = await sendToTelegram(translated.text, news.imageUrl);
     if (result.ok) {
@@ -147,12 +133,10 @@ app.get("/api/status", (req, res) => {
   res.json({
     ok: true,
     channel: CHANNEL_ID,
-    gemini: GEMINI_KEY ? "✅" : "❌",
+    gemini: GROQ_KEY ? "✅" : "❌",
     newsApi: NEWS_API_KEY ? "✅" : "❌",
     bot: BOT_TOKEN ? "✅" : "❌",
-    sentToday,
-    lastSent,
-    isRunning,
+    sentToday, lastSent, isRunning,
     autoInterval: AUTO_INTERVAL,
     logs: logs.slice(0, 20),
   });

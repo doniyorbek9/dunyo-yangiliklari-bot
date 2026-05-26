@@ -7,109 +7,163 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0e1117;color:#e0e0e0;min-height:100vh}
-.topbar{background:#161b22;border-bottom:1px solid #30363d;padding:14px 24px;display:flex;align-items:center;gap:10px}
-.topbar h1{font-size:15px;font-weight:600;color:#fff}
-.topbar .ch{font-size:12px;color:#2AABEE;margin-left:4px}
-.dot{width:8px;height:8px;border-radius:50%;background:#3fb950;flex-shrink:0;box-shadow:0 0 6px #3fb950}
-.dot.off{background:#f85149;box-shadow:0 0 6px #f85149}
-.wrap{max-width:860px;margin:0 auto;padding:20px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px}
-.stat{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
-.stat-val{font-size:22px;font-weight:700;color:#fff;margin-bottom:2px}
-.stat-lbl{font-size:11px;color:#8b949e}
-.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px;margin-bottom:14px}
-.card-title{font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:12px}
-input,textarea{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:9px 12px;font-size:13px;color:#e6edf3;font-family:inherit;outline:none;transition:border .2s}
-input:focus,textarea:focus{border-color:#2AABEE}
-textarea{min-height:80px;resize:vertical;margin-bottom:10px}
-input{margin-bottom:10px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
-.btn-blue{background:#238636;color:#fff}
-.btn-blue:hover{background:#2ea043}
-.btn-blue:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
+.topbar{background:#161b22;border-bottom:1px solid #30363d;padding:12px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:14px;font-weight:600;color:#fff}
+.topbar .ch{font-size:11px;color:#2AABEE;margin-left:4px}
+.dot{width:7px;height:7px;border-radius:50%;background:#3fb950;box-shadow:0 0 5px #3fb950;flex-shrink:0}
+.dot.off{background:#f85149;box-shadow:0 0 5px #f85149}
+.wrap{max-width:920px;margin:0 auto;padding:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px}
+.stat-val{font-size:20px;font-weight:700;color:#fff}
+.stat-lbl{font-size:10px;color:#8b949e;margin-top:2px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px;margin-bottom:12px}
+.card-title{font-size:12px;font-weight:600;color:#8b949e;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em}
+input,textarea,select{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;font-size:13px;color:#e6edf3;font-family:inherit;outline:none;transition:border .2s;margin-bottom:8px}
+input:focus,textarea:focus,select:focus{border-color:#2AABEE}
+textarea{min-height:70px;resize:vertical}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:none;font-family:inherit;transition:all .15s;width:100%;margin-bottom:6px}
+.btn-green{background:#238636;color:#fff}
+.btn-green:hover{background:#2ea043}
+.btn-green:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
+.btn-blue{background:#1f6feb;color:#fff}
+.btn-blue:hover{background:#388bfd}
 .btn-gray{background:#21262d;color:#e6edf3;border:1px solid #30363d}
 .btn-gray:hover{background:#30363d}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.chip{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #30363d;background:#0d1117;color:#8b949e}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #30363d;background:#0d1117;color:#8b949e}
 .chip.ok{background:#0d2a0d;border-color:#238636;color:#3fb950}
 .chip.err{background:#2a0d0d;border-color:#6e2222;color:#f85149}
-.log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;font-family:'Courier New',monospace;font-size:11px;min-height:140px;max-height:200px;overflow-y:auto}
+.log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:10px;min-height:120px;max-height:180px;overflow-y:auto;line-height:1.7}
 .log .ok{color:#3fb950}
 .log .err{color:#f85149}
 .log .info{color:#79c0ff}
 .log .warn{color:#e3b341}
-.log .time{color:#484f58}
-.result-box{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;font-size:13px;margin-top:10px;white-space:pre-wrap;line-height:1.6;display:none;color:#e6edf3}
+.log .t{color:#484f58}
+.result-box{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-size:12px;margin-top:8px;white-space:pre-wrap;line-height:1.6;display:none;max-height:200px;overflow-y:auto}
 .result-box.ok{border-color:#238636;color:#3fb950}
 .result-box.err{border-color:#6e2222;color:#f85149}
-.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #21262d}
+.toggle-row:last-child{border:none}
+.toggle-lbl{font-size:13px;color:#e6edf3}
+.toggle-sub{font-size:11px;color:#8b949e;margin-top:1px}
+.toggle{position:relative;width:36px;height:20px;border-radius:10px;background:#3fb950;cursor:pointer;flex-shrink:0;transition:background .2s}
+.toggle.off{background:#30363d}
+.toggle::after{content:'';width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px;transition:all .2s}
+.toggle.off::after{right:auto;left:2px}
+.digest-preview{background:#0d2a0d;border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:12px;font-size:12px;color:#c0e0c0;line-height:1.7;margin-top:8px;display:none;max-height:250px;overflow-y:auto}
+.section-sep{border:none;border-top:1px solid #21262d;margin:4px 0 12px}
 </style>
 </head>
 <body>
 <div class="topbar">
   <div class="dot" id="main-dot"></div>
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
   <h1>Dunyo Yangiliklari Bot</h1>
-  <span class="ch" id="ch-name">@dunyo_yangiliklari_1_1</span>
+  <span class="ch" id="ch-name"></span>
 </div>
 
 <div class="wrap">
   <div class="chips" id="chips"></div>
 
-  <div class="stats">
+  <div class="grid4">
     <div class="stat"><div class="stat-val" id="s-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
+    <div class="stat"><div class="stat-val" id="s-daily">0</div><div class="stat-lbl">Digest uchun to'plandi</div></div>
     <div class="stat"><div class="stat-val" id="s-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
-    <div class="stat"><div class="stat-val" id="s-interval">—</div><div class="stat-lbl">Avtomatik</div></div>
-    <div class="stat"><div class="stat-val" id="s-status">—</div><div class="stat-lbl">Bot holati</div></div>
+    <div class="stat"><div class="stat-val" id="s-status">—</div><div class="stat-lbl">Holat</div></div>
   </div>
 
-  <div class="card">
-    <div class="card-title">🤖 AI bilan avtomatik yangilik yuborish</div>
-    <p style="font-size:12px;color:#8b949e;margin-bottom:12px">Gemini AI dunyo yangiligini topib, o'zbekchaga o'girib, kanalga yuboradi.</p>
-    <button class="btn btn-blue" id="ai-btn" onclick="sendAI()">
-      <span id="ai-icon">⚡</span> Hozir yuborish
-    </button>
-    <div class="result-box" id="ai-result"></div>
-  </div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">Yangilik yuborish</div>
+        <button class="btn btn-green" id="ai-btn" onclick="sendAI()">
+          <span id="ai-icon">⚡</span> AI yangilik yubor
+        </button>
+        <div class="result-box" id="ai-result"></div>
+      </div>
 
-  <div class="card">
-    <div class="card-title">✏️ O'z matnimni yuborish</div>
-    <textarea id="my-text" placeholder="🌍 *Yangilik sarlavhasi*&#10;&#10;Bu yerga matn yozing..."></textarea>
-    <input id="my-img" type="text" placeholder="Rasm URL (ixtiyoriy): https://...">
-    <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
-    <div id="custom-res" style="font-size:12px;margin-top:8px;color:#8b949e"></div>
-  </div>
+      <div class="card">
+        <div class="card-title">Kun digest (21:00)</div>
+        <p style="font-size:12px;color:#8b949e;margin-bottom:10px">AI kun davomidagi barcha yangiliklarni yig'ib, qiziqarli digest yozadi.</p>
+        <button class="btn btn-blue" id="digest-btn" onclick="sendDigest()">
+          <span id="digest-icon">📰</span> Hozir digest yubor
+        </button>
+        <div class="digest-preview" id="digest-result"></div>
+      </div>
 
-  <div class="card">
-    <div class="card-title">📋 Jurnal</div>
-    <div class="log" id="log"></div>
+      <div class="card">
+        <div class="card-title">O'z matnimni yuborish</div>
+        <textarea id="my-text" placeholder="*Sarlavha*&#10;&#10;Matn yozing..."></textarea>
+        <input id="my-img" type="text" placeholder="Rasm URL (ixtiyoriy)">
+        <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
+        <div id="custom-res" style="font-size:12px;margin-top:4px;color:#8b949e"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-title">Manbalar</div>
+        <div class="toggle-row">
+          <div><div class="toggle-lbl">Kun.uz</div><div class="toggle-sub">O'zbek yangiliklari</div></div>
+          <div class="toggle" id="t-kunuz" onclick="toggleSource('kunuz')"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-lbl">Daryo.uz</div><div class="toggle-sub">O'zbek yangiliklari</div></div>
+          <div class="toggle" id="t-daryo" onclick="toggleSource('daryo')"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-lbl">NewsAPI</div><div class="toggle-sub">Xorijiy yangiliklar</div></div>
+          <div class="toggle" id="t-newsapi" onclick="toggleSource('newsapi')"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Jurnal</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
+const sourceState = { kunuz: true, daryo: true, newsapi: true };
+
 async function loadStatus() {
   try {
-    const d = await fetch('/api/status').then(r=>r.json());
+    const d = await fetch('/api/status').then(r => r.json());
     document.getElementById('s-sent').textContent = d.sentToday;
-    document.getElementById('s-interval').textContent = d.autoInterval;
+    document.getElementById('s-daily').textContent = d.dailyCount || 0;
     document.getElementById('s-status').textContent = d.isRunning ? '⏳ Band' : '✅ Tayyor';
-    document.getElementById('s-last').textContent = d.lastSent
-      ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
+    document.getElementById('s-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
+    document.getElementById('ch-name').textContent = d.channel || '';
     document.getElementById('main-dot').className = 'dot ' + (d.ok ? '' : 'off');
+
     document.getElementById('chips').innerHTML = [
-      {l:'Bot: '+d.bot, ok:d.bot==='✅'},
-      {l:'Kanal: '+d.channel, ok:!!d.channel},
-      {l:'Gemini: '+d.gemini, ok:d.gemini==='✅'},
-      {l:'NewsAPI: '+d.newsApi, ok:d.newsApi==='✅'},
-    ].map(c=>`<span class="chip ${c.ok?'ok':'err'}">${c.l}</span>`).join('');
+      { l: 'Bot: ' + d.bot, ok: d.bot === '✅' },
+      { l: 'Kanal: ' + (d.channel || '—'), ok: !!d.channel },
+      { l: 'Groq: ' + d.gemini, ok: d.gemini === '✅' },
+      { l: 'NewsAPI: ' + d.newsApi, ok: d.newsApi === '✅' },
+      { l: `Xotirada: ${d.sentCount}`, ok: true },
+    ].map(c => `<span class="chip ${c.ok ? 'ok' : 'err'}">${c.l}</span>`).join('');
+
+    if (d.settings) {
+      ['kunuz', 'daryo', 'newsapi'].forEach(k => {
+        sourceState[k] = d.settings[k];
+        const el = document.getElementById('t-' + k);
+        if (el) el.className = 'toggle' + (d.settings[k] ? '' : ' off');
+      });
+    }
     if (d.logs) renderLog(d.logs);
   } catch(e) {}
 }
 
 function renderLog(logs) {
-  document.getElementById('log').innerHTML = logs.map(l=>
-    `<div><span class="time">[${l.time}]</span> <span class="${l.type}">${l.msg}</span></div>`
+  document.getElementById('log').innerHTML = logs.map(l =>
+    `<div><span class="t">[${l.time}]</span> <span class="${l.type}">${l.msg}</span></div>`
   ).join('') || '<span style="color:#484f58">Jurnal bo\'sh...</span>';
 }
 
@@ -121,21 +175,41 @@ async function sendAI() {
   icon.innerHTML = '<span class="spin"></span>';
   box.style.display = 'block';
   box.className = 'result-box';
-  box.textContent = '⏳ AI yangilik qidiryapti...';
+  box.textContent = '⏳ Yangilik qidirilmoqda...';
   try {
-    const d = await fetch('/api/send-now',{method:'POST'}).then(r=>r.json());
-    if (d.ok) {
-      box.className = 'result-box ok';
-      box.textContent = '✅ Muvaffaqiyatli yuborildi!\n\n' + d.text;
-    } else {
-      box.className = 'result-box err';
-      box.textContent = '❌ Xato: ' + d.error;
-    }
+    const d = await fetch('/api/send-now', { method: 'POST' }).then(r => r.json());
+    box.className = 'result-box ' + (d.ok ? 'ok' : 'err');
+    box.textContent = d.ok ? `✅ Yuborildi! [${d.source}]\n\n${d.text}` : '❌ ' + d.error;
   } catch(e) {
     box.className = 'result-box err';
     box.textContent = '❌ Server xatosi';
   }
   icon.textContent = '⚡';
+  btn.disabled = false;
+  loadStatus();
+}
+
+async function sendDigest() {
+  const btn = document.getElementById('digest-btn');
+  const icon = document.getElementById('digest-icon');
+  const box = document.getElementById('digest-result');
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spin"></span>';
+  box.style.display = 'block';
+  box.textContent = '⏳ Digest tayyorlanmoqda...';
+  try {
+    const d = await fetch('/api/digest-now', { method: 'POST' }).then(r => r.json());
+    box.style.display = 'block';
+    if (d.ok) {
+      box.textContent = d.text;
+    } else {
+      box.style.color = '#f85149';
+      box.textContent = '❌ ' + d.error;
+    }
+  } catch(e) {
+    box.textContent = '❌ Server xatosi';
+  }
+  icon.textContent = '📰';
   btn.disabled = false;
   loadStatus();
 }
@@ -147,15 +221,26 @@ async function sendCustom() {
   if (!text) { res.textContent = '❌ Matn yozing!'; return; }
   res.textContent = '⏳ Yuborilmoqda...';
   try {
-    const d = await fetch('/api/send-custom',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({text, imageUrl})
-    }).then(r=>r.json());
+    const d = await fetch('/api/send-custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, imageUrl })
+    }).then(r => r.json());
     res.style.color = d.ok ? '#3fb950' : '#f85149';
     res.textContent = d.ok ? '✅ Yuborildi!' : '❌ ' + (d.description || d.error);
   } catch(e) { res.textContent = '❌ Xato'; }
   loadStatus();
+}
+
+async function toggleSource(key) {
+  sourceState[key] = !sourceState[key];
+  const el = document.getElementById('t-' + key);
+  el.className = 'toggle' + (sourceState[key] ? '' : ' off');
+  await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sourceState)
+  });
 }
 
 loadStatus();

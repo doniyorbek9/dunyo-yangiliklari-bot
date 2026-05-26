@@ -7,204 +7,363 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0e1117;color:#e0e0e0;min-height:100vh}
-.topbar{background:#161b22;border-bottom:1px solid #30363d;padding:12px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0e1117}
+.login-box{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:32px;width:320px;text-align:center}
+.login-logo{font-size:36px;margin-bottom:12px}
+.login-title{font-size:18px;font-weight:600;color:#fff;margin-bottom:4px}
+.login-sub{font-size:12px;color:#8b949e;margin-bottom:24px}
+.login-input{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;font-size:14px;color:#e6edf3;font-family:inherit;outline:none;margin-bottom:10px;transition:border .2s}
+.login-input:focus{border-color:#2AABEE}
+.login-btn{width:100%;background:#238636;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .15s}
+.login-btn:hover{background:#2ea043}
+.login-err{font-size:12px;color:#f85149;margin-top:8px;display:none}
+
+/* MAIN */
+.topbar{background:#161b22;border-bottom:1px solid #30363d;padding:10px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
 .topbar h1{font-size:14px;font-weight:600;color:#fff}
 .ch{font-size:11px;color:#2AABEE;margin-left:4px}
 .dot{width:7px;height:7px;border-radius:50%;background:#3fb950;box-shadow:0 0 5px #3fb950;flex-shrink:0}
 .dot.off{background:#f85149;box-shadow:0 0 5px #f85149}
-.wrap{max-width:960px;margin:0 auto;padding:16px}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.subs-badge{margin-left:auto;font-size:11px;color:#8b949e;background:#21262d;padding:3px 10px;border-radius:20px}
+.logout-btn{font-size:11px;color:#8b949e;background:none;border:1px solid #30363d;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit}
+.logout-btn:hover{color:#f85149;border-color:#f85149}
+
+.wrap{max-width:980px;margin:0 auto;padding:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px}
 .stat-val{font-size:20px;font-weight:700;color:#fff}
 .stat-lbl{font-size:10px;color:#8b949e;margin-top:2px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px;margin-bottom:12px}
-.card-title{font-size:11px;font-weight:600;color:#8b949e;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em}
+
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;color:#8b949e;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+
 input,textarea,select{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;font-size:13px;color:#e6edf3;font-family:inherit;outline:none;transition:border .2s;margin-bottom:8px}
 input:focus,textarea:focus,select:focus{border-color:#2AABEE}
-textarea{min-height:70px;resize:vertical}
-select{cursor:pointer}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:none;font-family:inherit;transition:all .15s;width:100%;margin-bottom:6px}
-.btn-green{background:#238636;color:#fff}
-.btn-green:hover{background:#2ea043}
+textarea{min-height:65px;resize:vertical}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:none;font-family:inherit;transition:all .15s;width:100%;margin-bottom:6px}
+.btn:last-child{margin-bottom:0}
+.btn-green{background:#238636;color:#fff}.btn-green:hover{background:#2ea043}
 .btn-green:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
-.btn-blue{background:#1f6feb;color:#fff}
-.btn-blue:hover{background:#388bfd}
+.btn-blue{background:#1f6feb;color:#fff}.btn-blue:hover{background:#388bfd}
 .btn-blue:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
-.btn-orange{background:#9e6a03;color:#fff}
-.btn-orange:hover{background:#bb8009}
-.btn-gray{background:#21262d;color:#e6edf3;border:1px solid #30363d}
-.btn-gray:hover{background:#30363d}
+.btn-orange{background:#9e6a03;color:#fff}.btn-orange:hover{background:#bb8009}
+.btn-red{background:#6e2222;color:#f85149;border:1px solid #f85149}.btn-red:hover{background:#f85149;color:#fff}
+.btn-yellow{background:#3d2e00;color:#e3b341;border:1px solid #e3b341}.btn-yellow:hover{background:#e3b341;color:#000}
+.btn-gray{background:#21262d;color:#e6edf3;border:1px solid #30363d}.btn-gray:hover{background:#30363d}
+.btn-sm{padding:6px 12px;font-size:12px;width:auto;margin-bottom:0}
+
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .chip{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #30363d;background:#0d1117;color:#8b949e}
 .chip.ok{background:#0d2a0d;border-color:#238636;color:#3fb950}
 .chip.err{background:#2a0d0d;border-color:#6e2222;color:#f85149}
-.log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:10px;min-height:140px;max-height:200px;overflow-y:auto;line-height:1.7}
-.log .ok{color:#3fb950}
-.log .err{color:#f85149}
-.log .info{color:#79c0ff}
-.log .warn{color:#e3b341}
-.log .t{color:#484f58}
+
+.log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:10px;min-height:120px;max-height:180px;overflow-y:auto;line-height:1.7}
+.log .ok{color:#3fb950}.log .err{color:#f85149}.log .info{color:#79c0ff}.log .warn{color:#e3b341}.log .t{color:#484f58}
+
 .result-box{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-size:12px;margin-top:8px;white-space:pre-wrap;line-height:1.6;display:none;max-height:180px;overflow-y:auto}
 .result-box.ok{border-color:#238636;color:#3fb950}
 .result-box.err{border-color:#6e2222;color:#f85149}
-.digest-box{background:#0d2a0d;border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:12px;font-size:12px;color:#c0e0c0;line-height:1.7;margin-top:8px;display:none;max-height:220px;overflow-y:auto}
+.digest-box{background:#0d2a0d;border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:10px;font-size:12px;color:#c0e0c0;line-height:1.7;margin-top:8px;display:none;max-height:200px;overflow-y:auto;white-space:pre-wrap}
+
 .spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #21262d}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #21262d}
 .toggle-row:last-child{border:none}
-.toggle-lbl{font-size:13px;color:#e6edf3}
-.toggle-sub{font-size:11px;color:#8b949e;margin-top:1px}
-.toggle{position:relative;width:36px;height:20px;border-radius:10px;background:#238636;cursor:pointer;flex-shrink:0;transition:background .2s}
+.toggle-lbl{font-size:12px;color:#e6edf3}
+.toggle-sub{font-size:10px;color:#8b949e}
+.toggle{position:relative;width:34px;height:18px;border-radius:9px;background:#238636;cursor:pointer;flex-shrink:0;transition:background .2s}
 .toggle.off{background:#30363d}
-.toggle::after{content:'';width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px;transition:all .2s}
+.toggle::after{content:'';width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px;transition:all .2s}
 .toggle.off::after{right:auto;left:2px}
+
 .sched-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-.sched-row label{font-size:12px;color:#8b949e;white-space:nowrap;min-width:130px}
+.sched-row label{font-size:12px;color:#8b949e;white-space:nowrap;min-width:120px}
 .sched-row select{margin-bottom:0}
-.save-ok{font-size:12px;color:#3fb950;margin-top:4px;display:none}
+
+/* SEARCH */
+.search-result{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:12px;margin-top:10px;display:none}
+.search-img{width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:none}
+.search-text{font-size:12px;color:#e0e0e0;line-height:1.7;white-space:pre-wrap;margin-bottom:10px;max-height:200px;overflow-y:auto}
+.search-actions{display:flex;gap:8px}
+
+/* BOT STATUS */
+.bot-status-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.status-pill{font-size:12px;padding:6px 14px;border-radius:8px;font-weight:500}
+.status-active{background:#0d2a0d;color:#3fb950;border:1px solid #238636}
+.status-paused{background:#2a0d0d;color:#f85149;border:1px solid #6e2222}
+.status-tomorrow{background:#2a1f00;color:#e3b341;border:1px solid #9e6a03}
+
+.save-ok{font-size:11px;color:#3fb950;display:none;margin-top:4px}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="dot" id="main-dot"></div>
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
-  <h1>Dunyo Yangiliklari Bot</h1>
-  <span class="ch" id="ch-name"></span>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-page">
+  <div class="login-box">
+    <div class="login-logo">🤖</div>
+    <div class="login-title">Dunyo Yangiliklari Bot</div>
+    <div class="login-sub">Boshqaruv paneliga kirish</div>
+    <input class="login-input" type="text" id="l-login" placeholder="Login" autocomplete="username">
+    <input class="login-input" type="password" id="l-pass" placeholder="Parol" autocomplete="current-password">
+    <button class="login-btn" onclick="doLogin()">Kirish</button>
+    <div class="login-err" id="login-err">Login yoki parol noto'g'ri</div>
+  </div>
 </div>
 
-<div class="wrap">
-  <div class="chips" id="chips"></div>
-
-  <div class="grid4">
-    <div class="stat"><div class="stat-val" id="s-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
-    <div class="stat"><div class="stat-val" id="s-daily">0</div><div class="stat-lbl">Digest uchun to'plandi</div></div>
-    <div class="stat"><div class="stat-val" id="s-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
-    <div class="stat"><div class="stat-val" id="s-status">—</div><div class="stat-lbl">Holat</div></div>
+<!-- MAIN -->
+<div id="main-page" style="display:none">
+  <div class="topbar">
+    <div class="dot" id="main-dot"></div>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
+    <h1>Dunyo Yangiliklari Bot</h1>
+    <span class="ch">@dunyo_yangiliklari_1_1</span>
+    <span class="subs-badge" id="subs-badge">👥 —</span>
+    <button class="logout-btn" onclick="doLogout()">Chiqish</button>
   </div>
 
-  <div class="grid2">
-    <div>
-      <div class="card">
-        <div class="card-title">⚡ Yangilik yuborish</div>
-        <button class="btn btn-green" id="ai-btn" onclick="sendAI()">
-          <span id="ai-icon">⚡</span> AI yangilik yubor
-        </button>
-        <div class="result-box" id="ai-result"></div>
-      </div>
+  <div class="wrap">
+    <div class="chips" id="chips"></div>
 
-      <div class="card">
-        <div class="card-title">📰 Kun digest</div>
-        <p style="font-size:12px;color:#8b949e;margin-bottom:10px">Kun davomidagi barcha yangiliklar yig'ilib, chiroyli digest yuboriladi.</p>
-        <button class="btn btn-blue" id="digest-btn" onclick="sendDigest()">
-          <span id="digest-icon">📰</span> Hozir digest yubor
-        </button>
-        <div class="digest-box" id="digest-result"></div>
-      </div>
+    <div class="bot-status-bar" id="bot-status-bar"></div>
 
-      <div class="card">
-        <div class="card-title">✏️ O'z matnimni yuborish</div>
-        <textarea id="my-text" placeholder="*Sarlavha*&#10;&#10;Matn yozing..."></textarea>
-        <input id="my-img" type="text" placeholder="Rasm URL (ixtiyoriy)">
-        <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
-        <div id="custom-res" style="font-size:12px;margin-top:4px;color:#8b949e"></div>
-      </div>
+    <div class="grid4">
+      <div class="stat"><div class="stat-val" id="s-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
+      <div class="stat"><div class="stat-val" id="s-daily">0</div><div class="stat-lbl">Digest uchun</div></div>
+      <div class="stat"><div class="stat-val" id="s-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
+      <div class="stat"><div class="stat-val" id="s-mem">0</div><div class="stat-lbl">Xotirada</div></div>
     </div>
 
-    <div>
-      <div class="card">
-        <div class="card-title">⏰ Jadval sozlamalari</div>
-        <div class="sched-row">
-          <label>Yangilik har:</label>
-          <select id="sel-interval">
-            <option value="1">1 soatda bir</option>
-            <option value="2" selected>2 soatda bir</option>
-            <option value="3">3 soatda bir</option>
-            <option value="4">4 soatda bir</option>
-            <option value="6">6 soatda bir</option>
-            <option value="8">8 soatda bir</option>
-            <option value="12">12 soatda bir</option>
-          </select>
+    <div class="grid2">
+      <div>
+        <!-- BOT CONTROL -->
+        <div class="card">
+          <div class="card-title">🎮 Bot boshqaruv</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <button class="btn btn-green btn-sm" onclick="toggleBot('start')">▶ Ishga tushir</button>
+            <button class="btn btn-red btn-sm" onclick="toggleBot('stop')">⏹ To'xtat</button>
+            <button class="btn btn-yellow btn-sm" onclick="toggleBot('tomorrow')">🌙 Ertadan</button>
+          </div>
         </div>
-        <div class="sched-row">
-          <label>Digest vaqti:</label>
-          <select id="sel-digest">
-            <option value="18">18:00</option>
-            <option value="19">19:00</option>
-            <option value="20">20:00</option>
-            <option value="21" selected>21:00</option>
-            <option value="22">22:00</option>
-            <option value="23">23:00</option>
-          </select>
+
+        <!-- SEND NEWS -->
+        <div class="card">
+          <div class="card-title">⚡ Yangilik yuborish</div>
+          <button class="btn btn-green" id="ai-btn" onclick="sendAI()">
+            <span id="ai-icon">⚡</span> AI yangilik yubor
+          </button>
+          <div class="result-box" id="ai-result"></div>
         </div>
-        <button class="btn btn-orange" onclick="saveSchedule()" style="margin-top:4px">💾 Saqlash</button>
-        <div class="save-ok" id="save-ok">✅ Saqlandi!</div>
+
+        <!-- DIGEST -->
+        <div class="card">
+          <div class="card-title">📰 Kun digest</div>
+          <p style="font-size:12px;color:#8b949e;margin-bottom:8px">Kun davomidagi yangiliklar yig'ilib digest yuboriladi.</p>
+          <button class="btn btn-blue" id="digest-btn" onclick="sendDigest()">
+            <span id="digest-icon">📰</span> Digest yubor
+          </button>
+          <div class="digest-box" id="digest-result"></div>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="card">
+          <div class="card-title">🔍 Mavzu bo'yicha qidiruv</div>
+          <div style="display:flex;gap:6px;margin-bottom:0">
+            <input id="search-query" type="text" placeholder="Misol: urush, sun'iy intellekt, iqtisodiyot..." style="margin-bottom:0">
+            <button class="btn btn-orange btn-sm" style="width:auto;flex-shrink:0" onclick="doSearch()">
+              <span id="search-icon">🔍</span>
+            </button>
+          </div>
+          <div class="search-result" id="search-result">
+            <img class="search-img" id="search-img" src="" alt="">
+            <div class="search-text" id="search-text"></div>
+            <div class="search-actions">
+              <button class="btn btn-green btn-sm" onclick="sendSearchResult()">📤 Kanalga yuborish</button>
+              <button class="btn btn-gray btn-sm" onclick="closeSearch()">✕ Yopish</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUSTOM -->
+        <div class="card">
+          <div class="card-title">✏️ O'z matnimni yuborish</div>
+          <textarea id="my-text" placeholder="*Sarlavha*&#10;&#10;Matn yozing..."></textarea>
+          <input id="my-img" type="text" placeholder="Rasm URL (ixtiyoriy)">
+          <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
+          <div id="custom-res" style="font-size:12px;margin-top:4px;color:#8b949e"></div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">🌐 Manbalar</div>
-        <div class="toggle-row">
-          <div><div class="toggle-lbl">Kun.uz</div><div class="toggle-sub">O'zbek yangiliklari</div></div>
-          <div class="toggle" id="t-kunuz" onclick="toggleSource('kunuz')"></div>
+      <div>
+        <!-- SCHEDULE -->
+        <div class="card">
+          <div class="card-title">⏰ Jadval sozlamalari</div>
+          <div class="sched-row">
+            <label>Yangilik har:</label>
+            <select id="sel-interval">
+              <option value="1">1 soatda bir</option>
+              <option value="2" selected>2 soatda bir</option>
+              <option value="3">3 soatda bir</option>
+              <option value="4">4 soatda bir</option>
+              <option value="6">6 soatda bir</option>
+              <option value="8">8 soatda bir</option>
+              <option value="12">12 soatda bir</option>
+            </select>
+          </div>
+          <div class="sched-row">
+            <label>Digest vaqti:</label>
+            <select id="sel-digest">
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21" selected>21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
+            </select>
+          </div>
+          <button class="btn btn-orange" onclick="saveSchedule()">💾 Saqlash</button>
+          <div class="save-ok" id="save-ok">✅ Saqlandi!</div>
         </div>
-        <div class="toggle-row">
-          <div><div class="toggle-lbl">Daryo.uz</div><div class="toggle-sub">O'zbek yangiliklari</div></div>
-          <div class="toggle" id="t-daryo" onclick="toggleSource('daryo')"></div>
-        </div>
-        <div class="toggle-row">
-          <div><div class="toggle-lbl">NewsAPI</div><div class="toggle-sub">Xorijiy yangiliklar</div></div>
-          <div class="toggle" id="t-newsapi" onclick="toggleSource('newsapi')"></div>
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-title">📋 Jurnal</div>
-        <div class="log" id="log"></div>
+        <!-- SOURCES -->
+        <div class="card">
+          <div class="card-title">🌐 Manbalar</div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Kun.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-kunuz" onclick="toggleSource('kunuz')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Daryo.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-daryo" onclick="toggleSource('daryo')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Xabarchi.com</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-xabarchi" onclick="toggleSource('xabarchi')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Gazeta.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-gazeta" onclick="toggleSource('gazeta')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Xabar.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-xabar" onclick="toggleSource('xabar')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">BBC O'zbek</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-bbcuz" onclick="toggleSource('bbcuz')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Podrobno.uz</div><div class="toggle-sub">Rus → O'zbek</div></div><div class="toggle" id="t-podrobno" onclick="toggleSource('podrobno')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">NewsAPI</div><div class="toggle-sub">Xorijiy → O'zbek</div></div><div class="toggle" id="t-newsapi" onclick="toggleSource('newsapi')"></div></div>
+        </div>
+
+        <!-- LOG -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="card-title" style="margin-bottom:0">📋 Jurnal</div>
+            <button class="btn btn-gray btn-sm" onclick="clearLog()">🗑 Tozalash</button>
+          </div>
+          <div class="log" id="log"></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-const srcState = { kunuz: true, daryo: true, newsapi: true };
+let authToken = localStorage.getItem('bot_token') || '';
+let srcState = {};
+let currentSearchText = '';
+
+async function doLogin() {
+  const login = document.getElementById('l-login').value.trim();
+  const pass = document.getElementById('l-pass').value.trim();
+  if (!login || !pass) return;
+  try {
+    const d = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login, password: pass })
+    }).then(r => r.json());
+    if (d.ok) {
+      authToken = d.token;
+      localStorage.setItem('bot_token', authToken);
+      showMain();
+    } else {
+      document.getElementById('login-err').style.display = 'block';
+    }
+  } catch(e) { document.getElementById('login-err').style.display = 'block'; }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') doLogin();
+});
+
+function doLogout() {
+  authToken = '';
+  localStorage.removeItem('bot_token');
+  document.getElementById('main-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('main-page').style.display = 'block';
+  loadStatus();
+}
+
+async function apiFetch(url, opts = {}) {
+  opts.headers = { ...opts.headers, 'x-auth-token': authToken };
+  const res = await fetch(url, opts);
+  if (res.status === 401) { doLogout(); return null; }
+  return res.json();
+}
 
 async function loadStatus() {
-  try {
-    const d = await fetch('/api/status').then(r => r.json());
-    document.getElementById('s-sent').textContent = d.sentToday;
-    document.getElementById('s-daily').textContent = d.dailyCount || 0;
-    document.getElementById('s-status').textContent = d.isRunning ? '⏳ Band' : '✅ Tayyor';
-    document.getElementById('s-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
-    document.getElementById('ch-name').textContent = d.channel || '';
-    document.getElementById('main-dot').className = 'dot ' + (d.ok ? '' : 'off');
+  const d = await apiFetch('/api/status');
+  if (!d) return;
+  document.getElementById('s-sent').textContent = d.sentToday;
+  document.getElementById('s-daily').textContent = d.dailyCount || 0;
+  document.getElementById('s-mem').textContent = d.sentCount || 0;
+  document.getElementById('s-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
+  document.getElementById('main-dot').className = 'dot ' + (d.ok ? '' : 'off');
+  document.getElementById('subs-badge').textContent = `👥 ${d.subscribers || '—'}`;
 
-    document.getElementById('chips').innerHTML = [
-      { l: 'Bot: ' + d.bot, ok: d.bot === '✅' },
-      { l: 'Kanal: ' + (d.channel || '—'), ok: !!d.channel },
-      { l: 'Groq: ' + d.gemini, ok: d.gemini === '✅' },
-      { l: 'NewsAPI: ' + d.newsApi, ok: d.newsApi === '✅' },
-      { l: `Xotirada: ${d.sentCount}`, ok: true },
-    ].map(c => `<span class="chip ${c.ok ? 'ok' : 'err'}">${c.l}</span>`).join('');
+  document.getElementById('chips').innerHTML = [
+    { l: 'Bot: ' + d.bot, ok: d.bot === '✅' },
+    { l: 'Kanal: ' + (d.channel || '—'), ok: !!d.channel },
+    { l: 'Groq: ' + d.gemini, ok: d.gemini === '✅' },
+    { l: 'NewsAPI: ' + d.newsApi, ok: d.newsApi === '✅' },
+    { l: `Xotirada: ${d.sentCount}`, ok: true },
+  ].map(c => `<span class="chip ${c.ok ? 'ok' : 'err'}">${c.l}</span>`).join('');
 
-    if (d.settings) {
-      ['kunuz', 'daryo', 'newsapi'].forEach(k => {
-        srcState[k] = d.settings[k];
-        const el = document.getElementById('t-' + k);
-        if (el) el.className = 'toggle' + (d.settings[k] ? '' : ' off');
-      });
-      const si = document.getElementById('sel-interval');
-      const sd = document.getElementById('sel-digest');
-      if (si) si.value = d.settings.interval || 2;
-      if (sd) sd.value = d.settings.digestHour || 21;
-    }
-    if (d.logs) renderLog(d.logs);
-  } catch(e) {}
+  const bar = document.getElementById('bot-status-bar');
+  if (d.botPaused && d.startFromTomorrow) {
+    bar.innerHTML = '<span class="status-pill status-tomorrow">🌙 Ertadan boshlab rejimi</span>';
+  } else if (d.botPaused) {
+    bar.innerHTML = '<span class="status-pill status-paused">⏹ Bot to\'xtatilgan</span>';
+  } else {
+    bar.innerHTML = `<span class="status-pill status-active">▶ Bot faol — har ${d.settings?.interval || 2} soatda yangilik</span>`;
+  }
+
+  if (d.settings) {
+    ['kunuz','daryo','newsapi','bbcuz','gazeta','xabar','podrobno','xabarchi'].forEach(k => {
+      srcState[k] = d.settings[k];
+      const el = document.getElementById('t-' + k);
+      if (el) el.className = 'toggle' + (d.settings[k] ? '' : ' off');
+    });
+    const si = document.getElementById('sel-interval');
+    const sd = document.getElementById('sel-digest');
+    if (si) si.value = d.settings.interval || 2;
+    if (sd) sd.value = d.settings.digestHour || 21;
+  }
+  if (d.logs) renderLog(d.logs);
 }
 
 function renderLog(logs) {
   document.getElementById('log').innerHTML = logs.map(l =>
     `<div><span class="t">[${l.time}]</span> <span class="${l.type}">${l.msg}</span></div>`
   ).join('') || '<span style="color:#484f58">Jurnal bo\'sh...</span>';
+}
+
+async function clearLog() {
+  await apiFetch('/api/clear-logs', { method: 'POST' });
+  loadStatus();
+}
+
+async function toggleBot(action) {
+  await apiFetch('/api/toggle-bot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action })
+  });
+  loadStatus();
 }
 
 async function sendAI() {
@@ -216,13 +375,10 @@ async function sendAI() {
   box.style.display = 'block';
   box.className = 'result-box';
   box.textContent = '⏳ Yangilik qidirilmoqda...';
-  try {
-    const d = await fetch('/api/send-now', { method: 'POST' }).then(r => r.json());
+  const d = await apiFetch('/api/send-now', { method: 'POST' });
+  if (d) {
     box.className = 'result-box ' + (d.ok ? 'ok' : 'err');
     box.textContent = d.ok ? `✅ Yuborildi! [${d.source}]\n\n${d.text}` : '❌ ' + d.error;
-  } catch(e) {
-    box.className = 'result-box err';
-    box.textContent = '❌ Server xatosi';
   }
   icon.textContent = '⚡';
   btn.disabled = false;
@@ -237,15 +393,59 @@ async function sendDigest() {
   icon.innerHTML = '<span class="spin"></span>';
   box.style.display = 'block';
   box.textContent = '⏳ Digest tayyorlanmoqda...';
-  try {
-    const d = await fetch('/api/digest-now', { method: 'POST' }).then(r => r.json());
-    box.style.display = 'block';
+  const d = await apiFetch('/api/digest-now', { method: 'POST' });
+  if (d) {
     box.textContent = d.ok ? d.text : '❌ ' + d.error;
     if (!d.ok) box.style.color = '#f85149';
-  } catch(e) { box.textContent = '❌ Server xatosi'; }
+  }
   icon.textContent = '📰';
   btn.disabled = false;
   loadStatus();
+}
+
+async function doSearch() {
+  const query = document.getElementById('search-query').value.trim();
+  if (!query) return;
+  const icon = document.getElementById('search-icon');
+  const result = document.getElementById('search-result');
+  icon.innerHTML = '<span class="spin"></span>';
+  result.style.display = 'block';
+  document.getElementById('search-text').textContent = '⏳ Qidirilmoqda...';
+  document.getElementById('search-img').style.display = 'none';
+  const d = await apiFetch('/api/search-topic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  if (d && d.ok) {
+    currentSearchText = d.text;
+    document.getElementById('search-text').textContent = d.text;
+    result.style.display = 'block';
+  } else if (d) {
+    document.getElementById('search-text').textContent = '❌ ' + d.error;
+  }
+  icon.textContent = '🔍';
+}
+
+async function sendSearchResult() {
+  if (!currentSearchText) return;
+  const d = await apiFetch('/api/send-custom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: currentSearchText })
+  });
+  if (d && d.ok) {
+    document.getElementById('search-text').textContent = '✅ Kanalga yuborildi!';
+    document.getElementById('search-text').style.color = '#3fb950';
+    setTimeout(() => closeSearch(), 2000);
+  }
+  loadStatus();
+}
+
+function closeSearch() {
+  document.getElementById('search-result').style.display = 'none';
+  document.getElementById('search-query').value = '';
+  currentSearchText = '';
 }
 
 async function sendCustom() {
@@ -253,23 +453,23 @@ async function sendCustom() {
   const imageUrl = document.getElementById('my-img').value.trim();
   const res = document.getElementById('custom-res');
   if (!text) { res.textContent = '❌ Matn yozing!'; return; }
-  res.textContent = '⏳ Yuborilmoqda...';
-  try {
-    const d = await fetch('/api/send-custom', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, imageUrl })
-    }).then(r => r.json());
+  res.textContent = '⏳...';
+  const d = await apiFetch('/api/send-custom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, imageUrl })
+  });
+  if (d) {
     res.style.color = d.ok ? '#3fb950' : '#f85149';
     res.textContent = d.ok ? '✅ Yuborildi!' : '❌ ' + (d.description || d.error);
-  } catch(e) { res.textContent = '❌ Xato'; }
+  }
   loadStatus();
 }
 
 async function toggleSource(key) {
   srcState[key] = !srcState[key];
   document.getElementById('t-' + key).className = 'toggle' + (srcState[key] ? '' : ' off');
-  await fetch('/api/settings', {
+  await apiFetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(srcState)
@@ -279,7 +479,7 @@ async function toggleSource(key) {
 async function saveSchedule() {
   const interval = document.getElementById('sel-interval').value;
   const digestHour = document.getElementById('sel-digest').value;
-  await fetch('/api/settings', {
+  await apiFetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...srcState, interval: Number(interval), digestHour: Number(digestHour) })
@@ -290,8 +490,17 @@ async function saveSchedule() {
   loadStatus();
 }
 
-loadStatus();
-setInterval(loadStatus, 15000);
+// Auto check login on load
+if (authToken) {
+  fetch('/api/status', { headers: { 'x-auth-token': authToken } })
+    .then(r => r.json())
+    .then(d => { if (d.ok) showMain(); })
+    .catch(() => {});
+}
+
+setInterval(() => {
+  if (document.getElementById('main-page').style.display !== 'none') loadStatus();
+}, 15000);
 </script>
 </body>
 </html>

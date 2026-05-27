@@ -237,26 +237,7 @@ FAQAT JSON qaytar, boshqa hech narsa yozma:
   return result;
 }
 
-async function searchTopic(query) {
-  const prompt = `Sen o'zbek tilidagi yangiliklar mutaxassisisan. Foydalanuvchi "${query}" haqida ma'lumot so'radi.
 
-Bu mavzu haqida quyidagilarni tayyorla:
-1. Qisqa kirish (2 jumla)
-2. Asosiy ma'lumotlar (4-5 nuqta, har biri 1-2 jumla)
-3. Hozirgi holat (2 jumla)
-4. Xulosa (1 jumla)
-
-O'zbek tilida yoz, emoji ishlet, Telegram formatida (*bold*, _italic_).
-Oxirida kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
-
-FAQAT JSON:
-{"text": "matn", "category": "kategoriya", "imageQuery": "inglizcha rasm qidiruv so'zi (3 so'z)"}`;
-
-  const raw = await groqRequest(prompt, 1000);
-  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-  if (!jsonMatch) throw new Error("JSON topilmadi");
-  return JSON.parse(jsonMatch[0]);
-}
 
 async function getImage(query) {
   try {
@@ -457,9 +438,6 @@ app.post("/api/toggle-bot", authMiddleware, (req, res) => {
   res.json({ ok: true, botPaused, startFromTomorrow });
 });
 
-app.post("/api/search-topic", authMiddleware, async (req, res) => {
-  const { query } = req.body;
-  if (!query) return res.json({ ok: false, error: "So'rov kerak" });
   try {
     addLog("info", `Qidiruv: "${query}"`);
     const result = await searchTopic(query);

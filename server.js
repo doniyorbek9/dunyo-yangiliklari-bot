@@ -219,10 +219,12 @@ MUHIM QOIDALAR:
 1. FAQAT o'zbek tilida yoz — ruscha yoki inglizcha so'z ISHLATMA
 2. Sarlavhani jozibali qil: "🔴 Shok:", "⚡ Tezkor:", "🌍 Muhim:", "📌 Diqqat:", "🔥 Yangilik:" kabilardan birini qo'sh
 3. Sarlavhani *yulduzcha* ichida yoz: *🔴 Sarlavha matni*
-4. 3-4 jumla, qisqa va qiziqarli
-5. 1-2 mos emoji qo'sh
-6. Oxirida: "📎 Manba: ${news.source}"
-7. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
+4. 3-4 jumla, qisqa va qiziqarli — har jumla BOSHQACHA boshlansin, takrorlanmassin
+5. Bir xil so'z bilan boshlanadigan jumlalar YOZMA
+6. "O'zbekiston" so'zini faqat 1 marta ishlatish mumkin
+7. 1-2 mos emoji qo'sh
+8. Oxirida: "📎 Manba: ${news.source}"
+9. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
 
 FAQAT JSON qaytar, boshqa hech narsa yozma:
 {"text": "post matni", "category": "kategoriya"}`;

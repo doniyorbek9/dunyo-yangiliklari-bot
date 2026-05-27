@@ -1,681 +1,588 @@
-const express = require("express");
-const Jimp = require("jimp");
-const path = require("path");
-const fs = require("fs");
-const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
-const cron = require("node-cron");
-require("dotenv").config();
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dunyo Yangiliklari Bot</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0e1117;color:#e0e0e0;min-height:100vh}
 
-const app = express();
-app.use(express.json());
-app.use(express.static("public"));
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0e1117}
+.login-box{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:32px;width:320px;text-align:center}
+.login-logo{font-size:36px;margin-bottom:12px}
+.login-title{font-size:18px;font-weight:600;color:#fff;margin-bottom:4px}
+.login-sub{font-size:12px;color:#8b949e;margin-bottom:24px}
+.login-input{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;font-size:14px;color:#e6edf3;font-family:inherit;outline:none;margin-bottom:10px;transition:border .2s}
+.login-input:focus{border-color:#2AABEE}
+.login-btn{width:100%;background:#238636;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .15s}
+.login-btn:hover{background:#2ea043}
+.login-err{font-size:12px;color:#f85149;margin-top:8px;display:none}
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHANNEL_ID = process.env.CHANNEL_ID;
-const GROQ_KEY = process.env.GROQ_KEY;
-const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const CHANNEL_LINK = "https://t.me/global\\_xabar\\_uz";
-const AD_TEXT = `\n\n📢 Obuna bo'ling: ${CHANNEL_LINK}`;
+/* MAIN */
+.topbar{background:#161b22;border-bottom:1px solid #30363d;padding:10px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:14px;font-weight:600;color:#fff}
+.ch{font-size:11px;color:#2AABEE;margin-left:4px}
+.dot{width:7px;height:7px;border-radius:50%;background:#3fb950;box-shadow:0 0 5px #3fb950;flex-shrink:0}
+.dot.off{background:#f85149;box-shadow:0 0 5px #f85149}
+.subs-badge{margin-left:auto;font-size:11px;color:#8b949e;background:#21262d;padding:3px 10px;border-radius:20px}
+.logout-btn{font-size:11px;color:#8b949e;background:none;border:1px solid #30363d;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit}
+.logout-btn:hover{color:#f85149;border-color:#f85149}
 
-let sentToday = 0;
-let lastSent = null;
-let isRunning = false;
-let botPaused = false;
-let startFromTomorrow = false;
-const logs = [];
-const sentTitles = new Set();
-const dailyNews = [];
+.wrap{max-width:980px;margin:0 auto;padding:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px}
+.stat-val{font-size:20px;font-weight:700;color:#fff}
+.stat-lbl{font-size:10px;color:#8b949e;margin-top:2px}
 
-const settings = {
-  kunuz: true, daryo: true, newsapi: true,
-  bbcuz: true, gazeta: true, xabar: true,
-  podrobno: true, xabarchi: true,
-  interval: 2, digestHour: 21,
-};
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;color:#8b949e;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
 
-let newsCronJob = null;
-let digestCronJob = null;
+input,textarea,select{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;font-size:13px;color:#e6edf3;font-family:inherit;outline:none;transition:border .2s;margin-bottom:8px}
+input:focus,textarea:focus,select:focus{border-color:#2AABEE}
+textarea{min-height:65px;resize:vertical}
 
-// AUTH
-const ADMIN = { login: "admin", password: "habar123" };
-const sessions = new Set();
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:none;font-family:inherit;transition:all .15s;width:100%;margin-bottom:6px}
+.btn:last-child{margin-bottom:0}
+.btn-green{background:#238636;color:#fff}.btn-green:hover{background:#2ea043}
+.btn-green:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
+.btn-blue{background:#1f6feb;color:#fff}.btn-blue:hover{background:#388bfd}
+.btn-blue:disabled{background:#21262d;color:#8b949e;cursor:not-allowed}
+.btn-orange{background:#9e6a03;color:#fff}.btn-orange:hover{background:#bb8009}
+.btn-red{background:#6e2222;color:#f85149;border:1px solid #f85149}.btn-red:hover{background:#f85149;color:#fff}
+.btn-yellow{background:#3d2e00;color:#e3b341;border:1px solid #e3b341}.btn-yellow:hover{background:#e3b341;color:#000}
+.btn-gray{background:#21262d;color:#e6edf3;border:1px solid #30363d}.btn-gray:hover{background:#30363d}
+.btn-sm{padding:6px 12px;font-size:12px;width:auto;margin-bottom:0}
 
-// Permanent token based on credentials
-const PERM_TOKEN = Buffer.from(`${ADMIN.login}:${ADMIN.password}`).toString('base64');
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #30363d;background:#0d1117;color:#8b949e}
+.chip.ok{background:#0d2a0d;border-color:#238636;color:#3fb950}
+.chip.err{background:#2a0d0d;border-color:#6e2222;color:#f85149}
 
-function authMiddleware(req, res, next) {
-  const token = req.headers["x-auth-token"];
-  if (token === PERM_TOKEN || sessions.has(token)) return next();
-  res.status(401).json({ ok: false, error: "Kirish talab etiladi" });
-}
+.log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:10px;min-height:120px;max-height:180px;overflow-y:auto;line-height:1.7}
+.log .ok{color:#3fb950}.log .err{color:#f85149}.log .info{color:#79c0ff}.log .warn{color:#e3b341}.log .t{color:#484f58}
 
-app.post("/api/login", (req, res) => {
-  const { login, password } = req.body;
-  if (login === ADMIN.login && password === ADMIN.password) {
-    sessions.add(PERM_TOKEN);
-    res.json({ ok: true, token: PERM_TOKEN });
-  } else {
-    res.json({ ok: false, error: "Login yoki parol noto'g'ri" });
-  }
-});
+.result-box{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-size:12px;margin-top:8px;white-space:pre-wrap;line-height:1.6;display:none;max-height:180px;overflow-y:auto}
+.result-box.ok{border-color:#238636;color:#3fb950}
+.result-box.err{border-color:#6e2222;color:#f85149}
+.digest-box{background:#0d2a0d;border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:10px;font-size:12px;color:#c0e0c0;line-height:1.7;margin-top:8px;display:none;max-height:200px;overflow-y:auto;white-space:pre-wrap}
 
-function addLog(type, msg) {
-  const time = new Date().toLocaleTimeString("uz-UZ");
-  logs.unshift({ type, msg, time });
-  if (logs.length > 300) logs.pop();
-  console.log(`[${type.toUpperCase()}] ${msg}`);
-}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-function clearLogs() { logs.length = 0; }
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #21262d}
+.toggle-row:last-child{border:none}
+.toggle-lbl{font-size:12px;color:#e6edf3}
+.toggle-sub{font-size:10px;color:#8b949e}
+.toggle{position:relative;width:34px;height:18px;border-radius:9px;background:#238636;cursor:pointer;flex-shrink:0;transition:background .2s}
+.toggle.off{background:#30363d}
+.toggle::after{content:'';width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px;transition:all .2s}
+.toggle.off::after{right:auto;left:2px}
 
-function getHashtags(category) {
-  const map = {
-    sport: "#sport #yangilik",
-    texnologiya: "#texnologiya #tech",
-    iqtisodiyot: "#iqtisodiyot #moliya",
-    siyosat: "#siyosat #dunyo",
-    salomatlik: "#salomatlik #tibbiyot",
-    dunyo: "#dunyo #xabar",
-  };
-  return map[category] || "#dunyo #yangilik";
-}
+.sched-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.sched-row label{font-size:12px;color:#8b949e;white-space:nowrap;min-width:120px}
+.sched-row select{margin-bottom:0}
 
-function getEmoji(category) {
-  const map = {
-    sport: "⚽", texnologiya: "💻", iqtisodiyot: "💰",
-    siyosat: "🏛️", salomatlik: "🏥", dunyo: "🌍",
-  };
-  return map[category] || "🌍";
-}
+/* SEARCH */
+.search-result{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:12px;margin-top:10px;display:none}
+.search-img{width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:none}
+.search-text{font-size:12px;color:#e0e0e0;line-height:1.7;white-space:pre-wrap;margin-bottom:10px;max-height:200px;overflow-y:auto}
+.search-actions{display:flex;gap:8px}
 
-function startCronJobs() {
-  if (newsCronJob) newsCronJob.stop();
-  if (digestCronJob) digestCronJob.stop();
-  newsCronJob = cron.schedule(`0 */${settings.interval} * * *`, () => {
-    if (botPaused) { addLog("warn", "Bot to'xtatilgan, o'tkazib yuborildi"); return; }
-    if (startFromTomorrow) { addLog("info", "Ertadan boshlab rejimi, kutilmoqda..."); return; }
-    addLog("info", `Avtomatik yangilik (har ${settings.interval} soat)...`);
-    runCycle();
-  });
-  digestCronJob = cron.schedule(`0 ${settings.digestHour} * * *`, () => {
-    if (botPaused) return;
-    addLog("info", `Digest vaqti (${settings.digestHour}:00)...`);
-    runDigest();
-  });
-  addLog("info", `Jadval: har ${settings.interval}s | Digest: ${settings.digestHour}:00`);
-}
+/* BOT STATUS */
+.bot-status-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.status-pill{font-size:12px;padding:6px 14px;border-radius:8px;font-weight:500}
+.status-active{background:#0d2a0d;color:#3fb950;border:1px solid #238636}
+.status-paused{background:#2a0d0d;color:#f85149;border:1px solid #6e2222}
+.status-tomorrow{background:#2a1f00;color:#e3b341;border:1px solid #9e6a03}
 
-// "Ertadan boshlab" - yarim tunda yoqiladi
-cron.schedule("0 0 * * *", () => {
-  sentToday = 0;
-  dailyNews.length = 0;
-  if (startFromTomorrow) {
-    startFromTomorrow = false;
-    botPaused = false;
-    addLog("ok", "Yangi kun — bot ishga tushdi!");
-  }
-  addLog("info", "Hisoblar nollandi");
-});
+.save-ok{font-size:11px;color:#3fb950;display:none;margin-top:4px}
+.weather-preview{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;font-size:12px;margin:8px 0;white-space:pre-wrap;line-height:1.7;color:#c0e0c0;max-height:200px;overflow-y:auto;display:none}
+.edit-area{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px;font-size:12px;color:#e6edf3;font-family:'Courier New',monospace;min-height:80px;resize:vertical;margin-bottom:6px;outline:none;display:none}
+.edit-area:focus{border-color:#2AABEE}
+.morning-stat{display:inline-flex;align-items:center;gap:6px;background:#21262d;border-radius:8px;padding:6px 12px;font-size:12px;color:#e6edf3;margin-bottom:8px;margin-right:6px}
 
-async function fetchRSS(url, sourceName, lang = "uz") {
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-page">
+  <div class="login-box">
+    <div class="login-logo">🤖</div>
+    <div class="login-title">Dunyo Yangiliklari Bot</div>
+    <div class="login-sub">Boshqaruv paneliga kirish</div>
+    <input class="login-input" type="text" id="l-login" placeholder="Login" autocomplete="username">
+    <input class="login-input" type="password" id="l-pass" placeholder="Parol" autocomplete="current-password">
+    <button class="login-btn" onclick="doLogin()">Kirish</button>
+    <div class="login-err" id="login-err">Login yoki parol noto'g'ri</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main-page" style="display:none">
+  <div class="topbar">
+    <div class="dot" id="main-dot"></div>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
+    <h1>Global Xabar</h1>
+    <span class="ch">@global_xabar_uz</span>
+    <span class="subs-badge" id="topbar-subs" style="display:none"></span>
+    <button class="logout-btn" onclick="doLogout()">Chiqish</button>
+  </div>
+
+  <div class="wrap">
+    <div class="chips" id="chips"></div>
+
+    <div class="bot-status-bar" id="bot-status-bar"></div>
+
+    <div class="grid4">
+      <div class="stat"><div class="stat-val" id="stat-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
+      <div class="stat"><div class="stat-val" id="s-daily">0</div><div class="stat-lbl">Digest uchun</div></div>
+      <div class="stat"><div class="stat-val" id="stat-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
+      <div class="stat"><div class="stat-val" id="subs-badge">—</div><div class="stat-lbl">Obunachi</div></div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <!-- BOT CONTROL -->
+        <div class="card">
+          <div class="card-title">🎮 Bot boshqaruv</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <button class="btn btn-green btn-sm" onclick="toggleBot('start')">▶ Ishga tushir</button>
+            <button class="btn btn-red btn-sm" onclick="toggleBot('stop')">⏹ To'xtat</button>
+            <button class="btn btn-yellow btn-sm" onclick="toggleBot('tomorrow')">🌙 Ertadan</button>
+          </div>
+        </div>
+
+        <!-- SEND NEWS -->
+        <div class="card">
+          <div class="card-title">⚡ Yangilik yuborish</div>
+          <button class="btn btn-green" id="ai-btn" onclick="sendAI()">
+            <span id="ai-icon">⚡</span> AI yangilik yubor
+          </button>
+          <div class="result-box" id="ai-result"></div>
+        </div>
+
+        <!-- DIGEST -->
+        <div class="card">
+          <div class="card-title">📰 Kun digest</div>
+          <p style="font-size:12px;color:#8b949e;margin-bottom:8px">Kun davomidagi yangiliklar yig'ilib digest yuboriladi.</p>
+          <button class="btn btn-blue" id="digest-btn" onclick="sendDigest()">
+            <span id="digest-icon">📰</span> Digest yubor
+          </button>
+          <div class="digest-box" id="digest-result"></div>
+        </div>
+        <!-- WEATHER -->
+        <div class="card">
+          <div class="card-title">🌤 Ob-havo (Toshkent)</div>
+          <div id="weather-stats"></div>
+          <div class="sched-row" style="margin-bottom:8px">
+            <label>Yuborish vaqti:</label>
+            <select id="sel-weather-hour">
+              <option value="4">04:00</option>
+              <option value="5">05:00</option>
+              <option value="6" selected>06:00</option>
+              <option value="7">07:00</option>
+              <option value="8">08:00</option>
+              <option value="9">09:00</option>
+              <option value="10">10:00</option>
+            </select>
+          </div>
+          <div class="weather-preview" id="weather-preview"></div>
+          <textarea class="edit-area" id="weather-edit" placeholder="Ob-havo matnini tahrirlang..."></textarea>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-gray btn-sm" onclick="previewWeather()">👁 Ko'rish</button>
+            <button class="btn btn-gray btn-sm" onclick="editWeather()">✏️ Tahrirlash</button>
+            <button class="btn btn-green btn-sm" id="weather-btn" onclick="sendWeather()"><span id="weather-icon">☀️</span> Hozir yuborish</button>
+          </div>
+          <div id="weather-res" style="font-size:12px;margin-top:6px;color:#8b949e"></div>
+        </div>
+
+        <!-- RATE -->
+        <div class="card">
+          <div class="card-title">💵 Dollar kursi (CBU)</div>
+          <div id="rate-stats"></div>
+          <div class="sched-row" style="margin-bottom:8px">
+            <label>Yuborish vaqti:</label>
+            <select id="sel-rate-hour">
+              <option value="4">04:00</option>
+              <option value="5">05:00</option>
+              <option value="6" selected>06:00</option>
+              <option value="7">07:00</option>
+              <option value="8">08:00</option>
+              <option value="9">09:00</option>
+              <option value="10">10:00</option>
+            </select>
+          </div>
+          <div class="weather-preview" id="rate-preview"></div>
+          <textarea class="edit-area" id="rate-edit" placeholder="Kurs matnini tahrirlang..."></textarea>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-gray btn-sm" onclick="previewRate()">👁 Ko'rish</button>
+            <button class="btn btn-gray btn-sm" onclick="editRate()">✏️ Tahrirlash</button>
+            <button class="btn btn-green btn-sm" id="rate-btn" onclick="sendRate()"><span id="rate-icon">💵</span> Hozir yuborish</button>
+          </div>
+          <div id="rate-res" style="font-size:12px;margin-top:6px;color:#8b949e"></div>
+          <button class="btn btn-orange" onclick="saveMorningSettings()" style="margin-top:8px">💾 Vaqtlarni saqlash</button>
+          <div class="save-ok" id="morning-save-ok">✅ Saqlandi!</div>
+        </div>
+        <!-- CUSTOM -->
+        <div class="card">
+          <div class="card-title">✏️ O'z matnimni yuborish</div>
+          <textarea id="my-text" placeholder="*Sarlavha*&#10;&#10;Matn yozing..."></textarea>
+          <input id="my-img" type="text" placeholder="Rasm URL (ixtiyoriy)">
+          <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
+          <div id="custom-res" style="font-size:12px;margin-top:4px;color:#8b949e"></div>
+        </div>
+      </div>
+
+      <div>
+        <!-- SCHEDULE -->
+        <div class="card">
+          <div class="card-title">⏰ Jadval sozlamalari</div>
+          <div class="sched-row">
+            <label>Yangilik har:</label>
+            <select id="sel-interval">
+              <option value="1">1 soatda bir</option>
+              <option value="2" selected>2 soatda bir</option>
+              <option value="3">3 soatda bir</option>
+              <option value="4">4 soatda bir</option>
+              <option value="6">6 soatda bir</option>
+              <option value="8">8 soatda bir</option>
+              <option value="12">12 soatda bir</option>
+            </select>
+          </div>
+          <div class="sched-row">
+            <label>Digest vaqti:</label>
+            <select id="sel-digest">
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21" selected>21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
+            </select>
+          </div>
+          <button class="btn btn-orange" onclick="saveSchedule()">💾 Saqlash</button>
+          <div class="save-ok" id="save-ok">✅ Saqlandi!</div>
+        </div>
+
+        <!-- SOURCES -->
+        <div class="card">
+          <div class="card-title">🌐 Manbalar</div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Kun.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-kunuz" onclick="toggleSource('kunuz')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Daryo.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-daryo" onclick="toggleSource('daryo')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Xabarchi.com</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-xabarchi" onclick="toggleSource('xabarchi')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Gazeta.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-gazeta" onclick="toggleSource('gazeta')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Xabar.uz</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-xabar" onclick="toggleSource('xabar')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">BBC O'zbek</div><div class="toggle-sub">O'zbek</div></div><div class="toggle" id="t-bbcuz" onclick="toggleSource('bbcuz')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Podrobno.uz</div><div class="toggle-sub">Rus → O'zbek</div></div><div class="toggle" id="t-podrobno" onclick="toggleSource('podrobno')"></div></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">NewsAPI</div><div class="toggle-sub">Xorijiy → O'zbek</div></div><div class="toggle" id="t-newsapi" onclick="toggleSource('newsapi')"></div></div>
+        </div>
+
+        <!-- LOG -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="card-title" style="margin-bottom:0">📋 Jurnal</div>
+            <button class="btn btn-gray btn-sm" onclick="clearLog()">🗑 Tozalash</button>
+          </div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let authToken = localStorage.getItem('bot_token') || '';
+let srcState = {};
+
+async function doLogin() {
+  const login = document.getElementById('l-login').value.trim();
+  const pass = document.getElementById('l-pass').value.trim();
+  const err = document.getElementById('login-err');
+  err.style.display = 'none';
   try {
-    const res = await fetch(url, { timeout: 8000 });
-    const xml = await res.text();
-    const items = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
-    return items.slice(0, 15).map(item => {
-      const title = (item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || item.match(/<title>(.*?)<\/title>/))?.[1]?.trim() || "";
-      const desc = (item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) || item.match(/<description>(.*?)<\/description>/))?.[1] || "";
-      const link = item.match(/<link>(.*?)<\/link>/)?.[1]?.trim() || "";
-      const img = item.match(/<enclosure[^>]+url="([^"]+)"/)?.[1] ||
-                  item.match(/<media:content[^>]+url="([^"]+)"/)?.[1] ||
-                  item.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] || null;
-      return {
-        title, description: desc.replace(/<[^>]+>/g, "").trim().slice(0, 300),
-        url: link, imageUrl: img, source: sourceName, lang
-      };
-    }).filter(a => a.title && !sentTitles.has(a.title));
-  } catch(e) {
-    addLog("warn", `${sourceName}: ` + e.message);
-    return [];
-  }
-}
-
-async function fetchNewsAPI() {
-  if (!settings.newsapi) return [];
-  try {
-    const url = `https://newsapi.org/v2/top-headlines?language=en&pageSize=20&apiKey=${NEWS_API_KEY}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.articles) return [];
-    return data.articles
-      .filter(a => a.title && a.description && !sentTitles.has(a.title))
-      .map(a => ({
-        title: a.title, description: a.description || "",
-        url: a.url, imageUrl: a.urlToImage || null,
-        source: a.source?.name || "NewsAPI", lang: "en"
-      }));
-  } catch(e) { addLog("warn", "NewsAPI: " + e.message); return []; }
-}
-
-async function fetchAllNews() {
-  const promises = [];
-  if (settings.kunuz) promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz"));
-  if (settings.daryo) promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz"));
-  if (settings.xabarchi) promises.push(fetchRSS("https://xabarchi.com/feed", "Xabarchi.com"));
-  if (settings.gazeta) promises.push(fetchRSS("https://www.gazeta.uz/uz/rss/", "Gazeta.uz"));
-  if (settings.xabar) promises.push(fetchRSS("https://xabar.uz/feed", "Xabar.uz"));
-  if (settings.bbcuz) promises.push(fetchRSS("https://feeds.bbci.co.uk/uzbek/rss.xml", "BBC O'zbek"));
-  if (settings.podrobno) promises.push(fetchRSS("https://podrobno.uz/rss/", "Podrobno.uz", "ru"));
-  if (settings.newsapi) promises.push(fetchNewsAPI());
-  const results = await Promise.all(promises);
-  const all = results.flat();
-  if (all.length === 0) throw new Error("Hech qaysi manbadan yangilik topilmadi");
-  const uzFirst = all.filter(n => ["Kun.uz","Daryo.uz","Xabarchi.com","Gazeta.uz","Xabar.uz","BBC O'zbek"].includes(n.source));
-  const pool = uzFirst.length > 0 ? uzFirst : all;
-  return pool[Math.floor(Math.random() * Math.min(6, pool.length))];
-}
-
-async function groqRequest(prompt, maxTokens = 700) {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
-    body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7, max_tokens: maxTokens,
-    }),
-  });
-  const data = await res.json();
-  if (!data.choices) throw new Error("Groq: " + JSON.stringify(data));
-  return data.choices[0].message.content.trim();
-}
-
-function cleanText(text) {
-  return text
-    .replace(/&laquo;/g, '"').replace(/&raquo;/g, '"')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
-    .replace(/&#[0-9]+;/g, '').replace(/&[a-z]+;/g, '')
-    .trim();
-}
-
-async function translateWithGroq(news) {
-  const isUz = ["Kun.uz","Daryo.uz","Xabarchi.com","Gazeta.uz","Xabar.uz","BBC O'zbek"].includes(news.source);
-  const isRu = news.lang === "ru";
-
-  const cleanTitle = cleanText(news.title);
-  const cleanDesc = cleanText(news.description);
-
-  const langInstruction = isUz 
-    ? "Bu yangilik o'zbek tilida. Aynan o'zbek tilida yoz, ruscha so'z ishlatma."
-    : isRu 
-    ? "Bu yangilik ruscha. O'ZBEK tiliga to'liq tarjima qil, birorta ruscha so'z qoldirma."
-    : "Bu yangilik inglizcha. O'ZBEK tiliga to'liq tarjima qil, birorta inglizcha so'z qoldirma.";
-
-  const prompt = `Sen Telegram kanal muharririsan. ${langInstruction}
-
-Sarlavha: ${cleanTitle}
-Tavsif: ${cleanDesc}
-Manba: ${news.source}
-
-MUHIM QOIDALAR:
-1. FAQAT o'zbek tilida yoz — ruscha yoki inglizcha so'z ISHLATMA
-2. Sarlavhani jozibali qil: "🔴 Shok:", "⚡ Tezkor:", "🌍 Muhim:", "📌 Diqqat:", "🔥 Yangilik:" kabilardan birini qo'sh
-3. Sarlavhani *yulduzcha* ichida yoz: *🔴 Sarlavha matni*
-4. 3-4 jumla, qisqa va qiziqarli — har jumla BOSHQACHA boshlansin, takrorlanmassin
-5. Bir xil so'z bilan boshlanadigan jumlalar YOZMA
-6. "O'zbekiston" so'zini faqat 1 marta ishlatish mumkin
-7. 1-2 mos emoji qo'sh
-8. Oxirida: "📎 Manba: ${news.source}"
-9. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
-
-FAQAT JSON qaytar, boshqa hech narsa yozma:
-{"text": "post matni", "category": "kategoriya"}`;
-
-  const raw = await groqRequest(prompt, 700);
-  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-  if (!jsonMatch) throw new Error("JSON topilmadi");
-  const result = JSON.parse(jsonMatch[0]);
-  result.text = cleanText(result.text);
-  return result;
-}
-
-
-
-async function getImage(query) {
-  try {
-    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=YOUR_UNSPLASH_KEY`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.results && data.results.length > 0) return data.results[0].urls.regular;
-    return null;
-  } catch(e) { return null; }
-}
-
-async function getSubscriberCount() {
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMembersCount?chat_id=${CHANNEL_ID}`);
-    const data = await res.json();
-    return data.ok ? data.result : null;
-  } catch(e) { return null; }
-}
-
-async function addWatermark(imageUrl) {
-  try {
-    const logoPath = path.join(__dirname, "public", "logo.png");
-    if (!fs.existsSync(logoPath)) return null;
-
-    // Download image
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return null;
-    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-
-    const [image, logo] = await Promise.all([
-      Jimp.read(imgBuffer),
-      Jimp.read(logoPath),
-    ]);
-
-    // Resize logo — pastki o'ng burchak uchun kichikroq
-    const logoSize = Math.round(image.getWidth() * 0.22);
-    logo.resize(logoSize, Jimp.AUTO);
-
-    // Pastki o'ng burchakka joylashtirish
-    const x = image.getWidth() - logo.getWidth() - 12;
-    const y = image.getHeight() - logo.getHeight() - 12;
-
-    image.composite(logo, x, y, {
-      mode: Jimp.BLEND_SOURCE_OVER,
-      opacitySource: 0.85,
-      opacityDest: 1,
-    });
-
-    const resultBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-    return resultBuffer;
-  } catch(e) {
-    addLog("warn", "Watermark xato: " + e.message);
-    return null;
-  }
-}
-
-async function sendToTelegram(text, imageUrl) {
-  if (imageUrl) {
-    try {
-      const watermarked = await addWatermark(imageUrl);
-      if (watermarked) {
-        // Multipart form bilan yuborish
-        const boundary = "----FormBoundary" + Math.random().toString(36).slice(2);
-        const textEncoder = new TextEncoder();
-
-        const header = textEncoder.encode(
-          `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${CHANNEL_ID}\r\n` +
-          `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${text}\r\n` +
-          `--${boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nMarkdown\r\n` +
-          `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="news.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
-        );
-        const footer = textEncoder.encode(`\r\n--${boundary}--\r\n`);
-        const body = Buffer.concat([Buffer.from(header), watermarked, Buffer.from(footer)]);
-
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-          method: "POST",
-          headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
-          body,
-        });
-        const d = await res.json();
-        if (d.ok) return d;
-      }
-    } catch(e) {
-      addLog("warn", "Watermark yuborishda xato: " + e.message);
-    }
-
-    // Fallback: watermarksiz URL bilan yuborish
-    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login, password: pass })
     });
     const d = await res.json();
-    if (!d.ok) return sendToTelegram(text, null);
-    return d;
+    if (d.ok) {
+      authToken = d.token;
+      localStorage.setItem('bot_token', authToken);
+      showMain();
+    } else {
+      err.style.display = 'block';
+    }
+  } catch(e) { err.style.display = 'block'; }
+}
+
+function showMain() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('main-page').style.display = 'block';
+  loadStatus();
+}
+
+async function apiFetch(url, body = null) {
+  const opts = { headers: { 'x-auth-token': authToken } };
+  if (body !== null) {
+    opts.method = 'POST';
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
   }
-  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
-  });
+  const res = await fetch(url, opts);
   return res.json();
 }
 
-async function runCycle() {
-  if (isRunning) return { ok: false, error: "Jarayon band" };
-  if (botPaused) return { ok: false, error: "Bot to'xtatilgan" };
-  isRunning = true;
+async function loadStatus() {
   try {
-    addLog("info", "Yangilik qidirilmoqda...");
-    const news = await fetchAllNews();
-    addLog("info", `[${news.source}] ${news.title.slice(0, 55)}`);
-    const translated = await translateWithGroq(news);
-    const hashtags = getHashtags(translated.category);
-    const finalText = translated.text + "\n\n" + hashtags + AD_TEXT;
-    const result = await sendToTelegram(finalText, news.imageUrl);
-    if (result.ok) {
-      sentTitles.add(news.title);
-      if (sentTitles.size > 500) sentTitles.delete(sentTitles.values().next().value);
-      dailyNews.push(news.title);
-      sentToday++;
-      lastSent = new Date().toISOString();
-      addLog("ok", `[${news.source}] Yuborildi ✓`);
-      return { ok: true, text: finalText, category: translated.category, source: news.source };
+    const d = await apiFetch('/api/status');
+    if (!d || !d.ok) return;
+    const el = id => document.getElementById(id);
+    if (el('stat-sent')) el('stat-sent').textContent = d.sentToday || 0;
+    if (el('subs-badge')) el('subs-badge').textContent = d.subscribers || '—';
+    if (el('stat-last')) el('stat-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
+    if (el('s-daily')) el('s-daily').textContent = d.dailyCount || 0;
+    if (d.settings) {
+      srcState = d.settings;
+      ['kunuz','daryo','newsapi','bbcuz','gazeta','xabar','podrobno','xabarchi'].forEach(k => {
+        const t = document.getElementById('t-' + k);
+        if (t) t.classList.toggle('on', !!d.settings[k]);
+      });
+    }
+    if (d.logs && el('log')) {
+      el('log').innerHTML = d.logs.map(l =>
+        '<div class="log-item log-' + l.type + '"><span class="log-time">' + l.time + '</span> ' + l.msg + '</div>'
+      ).join('');
+    }
+  } catch(e) {}
+}
+
+async function clearLog() {
+  await apiFetch('/api/clear-logs', {});
+  loadStatus();
+}
+
+async function sendAI() {
+  const input = document.querySelector('input[placeholder*="urush"], input[placeholder*="Misol"]');
+  const query = input ? input.value.trim() : '';
+  const btn = document.getElementById('ai-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const d = await apiFetch('/api/send-now', {});
+    if (d && d.ok) {
+      alert('✅ Yangilik yuborildi!');
+      loadStatus();
     } else {
-      throw new Error(result.description);
+      alert('❌ Xato: ' + (d && d.error ? d.error : 'Noma\'lum xato'));
     }
   } catch(e) {
-    addLog("err", "Xato: " + e.message);
-    return { ok: false, error: e.message };
-  } finally { isRunning = false; }
+    alert('❌ ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
-async function runDigest() {
-  if (isRunning) return { ok: false, error: "Band" };
-  if (dailyNews.length === 0) return { ok: false, error: "Bugun hech narsa yuborilmagan" };
-  isRunning = true;
-  try {
-    addLog("info", "Digest tayyorlanmoqda...");
-    const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
-    const list = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
-    const prompt = `O'zbek Telegram kanali uchun kun yakunini yoz.
-Bugun yuborilgan yangiliklar:
-${list}
-
-Format:
-- Sarlavha: "📰 *Bugun nimalar bo'ldi? — ${today}*"
-- Har birini 1-2 jumlada qiziqarli yoz
-- O'zbek tilida, emoji bilan
-- 15-20 jumla jami
-- Oxirida: #digest #bugunyangiliklari
-
-Faqat tayyor post matnini yoz.`;
-    const digestText = await groqRequest(prompt, 1500);
-    const fullText = digestText + AD_TEXT;
-    const result = await sendToTelegram(fullText, null);
-    if (result.ok) {
-      addLog("ok", "Digest yuborildi!");
-      return { ok: true, text: fullText };
-    } else throw new Error(result.description);
-  } catch(e) {
-    addLog("err", "Digest: " + e.message);
-    return { ok: false, error: e.message };
-  } finally { isRunning = false; }
+async function toggleBot(action) {
+  const d = await apiFetch('/api/toggle-bot', { action });
+  if (d && d.ok) loadStatus();
 }
 
-// ROUTES
-app.get("/api/status", authMiddleware, async (req, res) => {
-  const subs = await getSubscriberCount();
-  res.json({
-    ok: true, channel: CHANNEL_ID,
-    gemini: GROQ_KEY ? "✅" : "❌",
-    newsApi: NEWS_API_KEY ? "✅" : "❌",
-    bot: BOT_TOKEN ? "✅" : "❌",
-    sentToday, lastSent, isRunning, botPaused, startFromTomorrow,
-    sentCount: sentTitles.size, dailyCount: dailyNews.length,
-    subscribers: subs, settings,
-    logs: logs.slice(0, 30),
-  });
-});
-
-app.post("/api/send-now", authMiddleware, async (req, res) => res.json(await runCycle()));
-app.post("/api/digest-now", authMiddleware, async (req, res) => res.json(await runDigest()));
-app.post("/api/clear-logs", authMiddleware, (req, res) => { clearLogs(); res.json({ ok: true }); });
-
-app.post("/api/toggle-bot", authMiddleware, (req, res) => {
-  const { action } = req.body;
-  if (action === "stop") {
-    botPaused = true; startFromTomorrow = false;
-    addLog("warn", "Bot to'xtatildi");
-  } else if (action === "tomorrow") {
-    botPaused = true; startFromTomorrow = true;
-    addLog("info", "Ertadan boshlab rejimi yoqildi");
+async function digestNow() {
+  const d = await apiFetch('/api/digest-now', {});
+  if (d && d.ok) {
+    alert('✅ Digest yuborildi!');
+    loadStatus();
   } else {
-    botPaused = false; startFromTomorrow = false;
-    addLog("ok", "Bot ishga tushdi");
+    alert('❌ ' + (d && d.error ? d.error : 'Xato'));
   }
-  res.json({ ok: true, botPaused, startFromTomorrow });
-});
-
-async function searchTopic(query) {
-  const prompt = `Sen Telegram kanal muharririsan. O'zbek tilida "${query}" mavzusida qisqa, jozibali post yoz.
-MUHIM QOIDALAR:
-1. FAQAT o'zbek tilida yoz
-2. Sarlavhani *yulduzcha* ichida yoz: *🔍 Sarlavha*
-3. 3-4 jumla, qisqa va qiziqarli
-4. 1-2 mos emoji qo'sh
-5. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
-
-FAQAT JSON qaytar:
-{"text": "post matni", "category": "kategoriya"}`;
-  const raw = await groqRequest(prompt, 700);
-  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-  if (!jsonMatch) throw new Error("JSON topilmadi");
-  const result = JSON.parse(jsonMatch[0]);
-  result.text = cleanText(result.text);
-  return result;
 }
 
-app.post("/api/search", authMiddleware, async (req, res) => {
-  const { query } = req.body;
-  if (!query) return res.json({ ok: false, error: "So'rov kerak" });
-  try {
-    addLog("info", `Qidiruv: "${query}"`);
-    const result = await searchTopic(query);
-    result.text = result.text + AD_TEXT;
-    res.json({ ok: true, ...result });
-  } catch(e) {
-    res.json({ ok: false, error: e.message });
-  }
-});
+const sendDigest = digestNow;
 
-app.post("/api/send-custom", authMiddleware, async (req, res) => {
-  const { text, imageUrl } = req.body;
-  if (!text) return res.json({ ok: false, error: "Matn kerak" });
-  try {
-    const finalText = text + AD_TEXT;
-    const result = await sendToTelegram(finalText, imageUrl);
-    if (result.ok) { sentToday++; lastSent = new Date().toISOString(); }
-    addLog(result.ok ? "ok" : "err", "Qo'lda: " + text.slice(0, 50));
-    res.json(result);
-  } catch(e) { res.json({ ok: false, error: e.message }); }
-});
 
-app.post("/api/settings", authMiddleware, (req, res) => {
-  const { kunuz, daryo, newsapi, bbcuz, gazeta, xabar, podrobno, xabarchi, interval, digestHour } = req.body;
-  const bools = { kunuz, daryo, newsapi, bbcuz, gazeta, xabar, podrobno, xabarchi };
-  Object.keys(bools).forEach(k => { if (typeof bools[k] === "boolean") settings[k] = bools[k]; });
-  if (interval && [1,2,3,4,6,8,12].includes(Number(interval))) settings.interval = Number(interval);
-  if (digestHour && digestHour >= 18 && digestHour <= 23) settings.digestHour = Number(digestHour);
-  startCronJobs();
-  res.json({ ok: true, settings });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  addLog("ok", `Server: http://localhost:${PORT}`);
-  addLog("info", `Kanal: ${CHANNEL_ID}`);
-  startCronJobs();
-  addLog("info", "Manbalar: Kun.uz + Daryo.uz + Xabarchi + Gazeta + Xabar + BBC + Podrobno + NewsAPI");
-});
-
-// ============ OB-HAVO VA DOLLAR KURSI ============
-
-const morningSettings = {
-  weatherHour: 6,
-  rateHour: 6,
-  weatherText: null, // tahrirlangan matn
-  rateText: null,    // tahrirlangan matn
-};
-
-let weatherCronJob = null;
-let rateCronJob = null;
-
-function startMorningCrons() {
-  if (weatherCronJob) weatherCronJob.stop();
-  if (rateCronJob) rateCronJob.stop();
-
-  weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, () => {
-    addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
-    runWeather();
+async function sendCustom() {
+  const text = document.getElementById('my-text').value.trim();
+  const imageUrl = document.getElementById('my-img').value.trim();
+  const res = document.getElementById('custom-res');
+  if (!text) { res.textContent = '❌ Matn yozing!'; return; }
+  res.textContent = '⏳...';
+  const d = await apiFetch('/api/send-custom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, imageUrl })
   });
+  if (d) {
+    res.style.color = d.ok ? '#3fb950' : '#f85149';
+    res.textContent = d.ok ? '✅ Yuborildi!' : '❌ ' + (d.description || d.error);
+  }
+  loadStatus();
+}
 
-  rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, () => {
-    addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
-    runRate();
+async function toggleSource(key) {
+  srcState[key] = !srcState[key];
+  document.getElementById('t-' + key).className = 'toggle' + (srcState[key] ? '' : ' off');
+  await apiFetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(srcState)
   });
-
-  addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
 }
 
-async function fetchWeather() {
+async function saveSchedule() {
+  const interval = document.getElementById('sel-interval').value;
+  const digestHour = document.getElementById('sel-digest').value;
+  await apiFetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...srcState, interval: Number(interval), digestHour: Number(digestHour) })
+  });
+  const ok = document.getElementById('save-ok');
+  ok.style.display = 'block';
+  setTimeout(() => ok.style.display = 'none', 2000);
+  loadStatus();
+}
+
+// Auto check login on load
+if (authToken) {
+  fetch('/api/status', { headers: { 'x-auth-token': authToken } })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        showMain();
+      } else {
+        localStorage.removeItem('bot_token');
+        authToken = '';
+        document.getElementById('login-page').style.display = 'flex';
+      }
+    })
+    .catch(() => {
+      document.getElementById('login-page').style.display = 'flex';
+    });
+} else {
+  document.getElementById('login-page').style.display = 'flex';
+}
+
+
+let weatherPreviewText = '';
+let ratePreviewText = '';
+
+async function loadMorningStatus() {
   try {
-    const res = await fetch("https://wttr.in/Tashkent?format=j1", { timeout: 8000 });
-    const data = await res.json();
-    const cur = data.current_condition[0];
-    const temp = cur.temp_C;
-    const feels = cur.FeelsLikeC;
-    const desc = cur.lang_uz?.[0]?.value || cur.weatherDesc[0].value;
-    const humidity = cur.humidity;
-    const wind = cur.windspeedKmph;
-    const tomorrow = data.weather[1];
-    const maxT = tomorrow.maxtempC;
-    const minT = tomorrow.mintempC;
-
-    return { temp, feels, desc, humidity, wind, maxT, minT };
-  } catch(e) {
-    addLog("warn", "Ob-havo xato: " + e.message);
-    return null;
-  }
+    const d = await apiFetch('/api/morning-status');
+    if (!d || !d.ok) return;
+    
+    if (d.weather) {
+      document.getElementById('weather-stats').innerHTML = 
+        `<div class="morning-stat">🌡 ${d.weather.temp}°C</div>` +
+        `<div class="morning-stat">💧 ${d.weather.humidity}%</div>` +
+        `<div class="morning-stat">💨 ${d.weather.wind} km/s</div>`;
+    }
+    if (d.rate) {
+      const usd = Number(d.rate.usd).toLocaleString('uz-UZ');
+      const eur = Number(d.rate.eur).toLocaleString('uz-UZ');
+      document.getElementById('rate-stats').innerHTML =
+        `<div class="morning-stat">🇺🇸 ${usd} so'm</div>` +
+        `<div class="morning-stat">🇪🇺 ${eur} so'm</div>`;
+    }
+    if (d.weatherPreview) { weatherPreviewText = d.weatherPreview; }
+    if (d.ratePreview) { ratePreviewText = d.ratePreview; }
+    if (d.morningSettings) {
+      const wh = document.getElementById('sel-weather-hour');
+      const rh = document.getElementById('sel-rate-hour');
+      if (wh) wh.value = d.morningSettings.weatherHour || 6;
+      if (rh) rh.value = d.morningSettings.rateHour || 6;
+    }
+  } catch(e) {}
 }
 
-async function fetchRates() {
-  try {
-    const res = await fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/", { timeout: 8000 });
-    const data = await res.json();
-    const find = (code) => data.find(r => r.Ccy === code);
-    const usd = find("USD");
-    const eur = find("EUR");
-    const rub = find("RUB");
-    return { usd: usd?.Rate, eur: eur?.Rate, rub: rub?.Rate };
-  } catch(e) {
-    addLog("warn", "Kurs xato: " + e.message);
-    return null;
-  }
+function previewWeather() {
+  const box = document.getElementById('weather-preview');
+  box.style.display = 'block';
+  box.textContent = weatherPreviewText || 'Yuklanmoqda...';
+  document.getElementById('weather-edit').style.display = 'none';
 }
 
-function getWeatherEmoji(temp) {
-  if (temp >= 35) return "🥵";
-  if (temp >= 25) return "☀️";
-  if (temp >= 15) return "⛅";
-  if (temp >= 5) return "🌥️";
-  return "❄️";
+function editWeather() {
+  const edit = document.getElementById('weather-edit');
+  edit.style.display = 'block';
+  edit.value = weatherPreviewText;
+  document.getElementById('weather-preview').style.display = 'none';
 }
 
-async function buildWeatherText(custom = null) {
-  if (custom) return custom + AD_TEXT;
-  const w = await fetchWeather();
-  if (!w) throw new Error("Ob-havo ma'lumoti olinmadi");
-  const emoji = getWeatherEmoji(Number(w.temp));
-  const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
-  return `${emoji} *Bugungi ob-havo — Toshkent | ${today}*
-
-🌡 Harorat: *${w.temp}°C* (his qilish: ${w.feels}°C)
-🌤 Holat: ${w.desc}
-💧 Namlik: ${w.humidity}%
-💨 Shamol: ${w.wind} km/soat
-
-📅 *Ertaga:* ${w.minT}°C — ${w.maxT}°C
-
-Kiyinishda ehtiyot bo'ling! ${emoji}
-${AD_TEXT}`;
+async function sendWeather() {
+  const btn = document.getElementById('weather-btn');
+  const icon = document.getElementById('weather-icon');
+  const res = document.getElementById('weather-res');
+  const edit = document.getElementById('weather-edit');
+  const customText = edit.style.display !== 'none' ? edit.value.trim() : null;
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spin"></span>';
+  res.textContent = '⏳ Yuborilmoqda...';
+  const d = await apiFetch('/api/send-weather', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ customText })
+  });
+  res.style.color = d?.ok ? '#3fb950' : '#f85149';
+  res.textContent = d?.ok ? '✅ Ob-havo yuborildi!' : '❌ ' + (d?.error || 'Xato');
+  icon.textContent = '☀️';
+  btn.disabled = false;
 }
 
-async function buildRateText(custom = null) {
-  if (custom) return custom + AD_TEXT;
-  const r = await fetchRates();
-  if (!r) throw new Error("Kurs ma'lumoti olinmadi");
-  const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
-  const usd = Number(r.usd).toLocaleString("uz-UZ");
-  const eur = Number(r.eur).toLocaleString("uz-UZ");
-  const rub = (Number(r.rub) * 100).toFixed(0);
-  return `💵 *Valyuta kurslari — ${today}*
-_(O'zbekiston Markaziy banki)_
-
-🇺🇸 1 USD = *${usd}* so'm
-🇪🇺 1 EUR = *${eur}* so'm
-🇷🇺 100 RUB = *${rub}* so'm
-
-📊 Kurslar har kuni yangilanadi
-${AD_TEXT}`;
+function previewRate() {
+  const box = document.getElementById('rate-preview');
+  box.style.display = 'block';
+  box.textContent = ratePreviewText || 'Yuklanmoqda...';
+  document.getElementById('rate-edit').style.display = 'none';
 }
 
-async function runWeather(customText = null) {
-  try {
-    const text = await buildWeatherText(customText || morningSettings.weatherText);
-    const result = await sendToTelegram(text, null);
-    if (result.ok) {
-      addLog("ok", "Ob-havo yuborildi ✓");
-      morningSettings.weatherText = null;
-      return { ok: true, text };
-    } else throw new Error(result.description);
-  } catch(e) {
-    addLog("err", "Ob-havo: " + e.message);
-    return { ok: false, error: e.message };
-  }
+function editRate() {
+  const edit = document.getElementById('rate-edit');
+  edit.style.display = 'block';
+  edit.value = ratePreviewText;
+  document.getElementById('rate-preview').style.display = 'none';
 }
 
-async function runRate(customText = null) {
-  try {
-    const text = await buildRateText(customText || morningSettings.rateText);
-    const result = await sendToTelegram(text, null);
-    if (result.ok) {
-      addLog("ok", "Kurs yuborildi ✓");
-      morningSettings.rateText = null;
-      return { ok: true, text };
-    } else throw new Error(result.description);
-  } catch(e) {
-    addLog("err", "Kurs: " + e.message);
-    return { ok: false, error: e.message };
-  }
+async function sendRate() {
+  const btn = document.getElementById('rate-btn');
+  const icon = document.getElementById('rate-icon');
+  const res = document.getElementById('rate-res');
+  const edit = document.getElementById('rate-edit');
+  const customText = edit.style.display !== 'none' ? edit.value.trim() : null;
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spin"></span>';
+  res.textContent = '⏳ Yuborilmoqda...';
+  const d = await apiFetch('/api/send-rate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ customText })
+  });
+  res.style.color = d?.ok ? '#3fb950' : '#f85149';
+  res.textContent = d?.ok ? '✅ Kurs yuborildi!' : '❌ ' + (d?.error || 'Xato');
+  icon.textContent = '💵';
+  btn.disabled = false;
 }
 
-// Morning routes
-app.get("/api/morning-status", authMiddleware, async (req, res) => {
-  try {
-    const [weather, rate] = await Promise.all([fetchWeather(), fetchRates()]);
-    const weatherPreview = await buildWeatherText();
-    const ratePreview = await buildRateText();
-    res.json({ ok: true, weather, rate, weatherPreview, ratePreview, morningSettings });
-  } catch(e) {
-    res.json({ ok: false, error: e.message });
-  }
-});
+async function saveMorningSettings() {
+  const weatherHour = document.getElementById('sel-weather-hour').value;
+  const rateHour = document.getElementById('sel-rate-hour').value;
+  await apiFetch('/api/morning-settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ weatherHour: Number(weatherHour), rateHour: Number(rateHour) })
+  });
+  const ok = document.getElementById('morning-save-ok');
+  ok.style.display = 'block';
+  setTimeout(() => ok.style.display = 'none', 2000);
+}
 
-app.post("/api/send-weather", authMiddleware, async (req, res) => {
-  const { customText } = req.body;
-  res.json(await runWeather(customText || null));
-});
-
-app.post("/api/send-rate", authMiddleware, async (req, res) => {
-  const { customText } = req.body;
-  res.json(await runRate(customText || null));
-});
-
-app.post("/api/morning-settings", authMiddleware, (req, res) => {
-  const { weatherHour, rateHour, weatherText, rateText } = req.body;
-  if (weatherHour >= 4 && weatherHour <= 12) morningSettings.weatherHour = Number(weatherHour);
-  if (rateHour >= 4 && rateHour <= 12) morningSettings.rateHour = Number(rateHour);
-  if (typeof weatherText === "string") morningSettings.weatherText = weatherText || null;
-  if (typeof rateText === "string") morningSettings.rateText = rateText || null;
-  startMorningCrons();
-  addLog("info", `Ertalab sozlandi: ob-havo ${morningSettings.weatherHour}:00, kurs ${morningSettings.rateHour}:00`);
-  res.json({ ok: true, morningSettings });
-});
-
-// Start morning crons
-startMorningCrons();
+setInterval(() => {
+  if (document.getElementById('main-page').style.display !== 'none') loadStatus();
+}, 15000);
+</script>
+</body>
+</html>

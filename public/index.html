@@ -467,8 +467,20 @@ async function saveSchedule() {
 if (authToken) {
   fetch('/api/status', { headers: { 'x-auth-token': authToken } })
     .then(r => r.json())
-    .then(d => { if (d.ok) showMain(); })
-    .catch(() => {});
+    .then(d => {
+      if (d.ok) {
+        showMain();
+      } else {
+        localStorage.removeItem('bot_token');
+        authToken = '';
+        document.getElementById('login-page').style.display = 'flex';
+      }
+    })
+    .catch(() => {
+      document.getElementById('login-page').style.display = 'flex';
+    });
+} else {
+  document.getElementById('login-page').style.display = 'flex';
 }
 
 

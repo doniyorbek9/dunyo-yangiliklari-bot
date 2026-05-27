@@ -310,47 +310,118 @@ async function addWatermark(imageUrl) {
 async function sendToTelegram(text, imageUrl) {
   if (imageUrl) {
     try {
+      // Avval rasmni yuklab olishga harakat qilamiz
       const watermarked = await addWatermark(imageUrl);
-      if (watermarked) {
-        // Multipart form bilan yuborish
-        const boundary = "----FormBoundary" + Math.random().toString(36).slice(2);
-        const textEncoder = new TextEncoder();
 
-        const header = textEncoder.encode(
-          `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${CHANNEL_ID}\r\n` +
-          `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${text}\r\n` +
-          `--${boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nMarkdown\r\n` +
-          `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="news.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
+      if (watermarked) {
+        // FormData ishlatmasdan to'g'ri multipart qurish
+        const boundary = "----TGBoundary" + Date.now().toString(36);
+        const CRLF = "\r\n";
+
+        const parts = [];
+        const addField = (name, value) => {
+          parts.push(
+            `--${boundary}${CRLF}`,
+            `Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}`,
+            value, CRLF
+          );
+        };
+
+        addField("chat_id", String(CHANNEL_ID));
+        addField("caption", text);
+        addField("parse_mode", "Markdown");
+
+        const photoHeader = Buffer.from(
+          `--${boundary}${CRLF}` +
+          `Content-Disposition: form-data; name="photo"; filename="news.jpg"${CRLF}` +
+          `Content-Type: image/jpeg${CRLF}${CRLF}`
         );
-        const footer = textEncoder.encode(`\r\n--${boundary}--\r\n`);
-        const body = Buffer.concat([Buffer.from(header), watermarked, Buffer.from(footer)]);
+        const photoFooter = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
+
+        const textParts = Buffer.from(parts.join(""));
+        const body = Buffer.concat([textParts, photoHeader, watermarked, photoFooter]);
 
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
           method: "POST",
           headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
           body,
+          timeout: 20000,
         });
         const d = await res.json();
-        if (d.ok) return d;
+        if (d.ok) {
+          addLog("info", "Rasm watermark bilan yuborildi ✓");
+          return d;
+        }
+        addLog("warn", "Watermark yuborishda Telegram xato: " + JSON.stringify(d));
       }
     } catch(e) {
-      addLog("warn", "Watermark yuborishda xato: " + e.message);
+      addLog("warn", "Watermark jarayonida xato: " + e.message);
     }
 
-    // Fallback: watermarksiz URL bilan yuborish
-    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
-    });
-    const d = await res.json();
-    if (!d.ok) return sendToTelegram(text, null);
-    return d;
+    // Fallback 1: rasmni buffer sifatida yuklab, watermarksiz yuborish
+    try {
+      const imgRes = await fetch(imageUrl, {
+        timeout: 10000,
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; TelegramBot)" }
+      });
+      if (imgRes.ok) {
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        const boundary = "----TGFallback" + Date.now().toString(36);
+        const CRLF = "\r\n";
+        const textPart = Buffer.from(
+          `--${boundary}${CRLF}Content-Disposition: form-data; name="chat_id"${CRLF}${CRLF}${CHANNEL_ID}${CRLF}` +
+          `--${boundary}${CRLF}Content-Disposition: form-data; name="caption"${CRLF}${CRLF}${text}${CRLF}` +
+          `--${boundary}${CRLF}Content-Disposition: form-data; name="parse_mode"${CRLF}${CRLF}Markdown${CRLF}` +
+          `--${boundary}${CRLF}Content-Disposition: form-data; name="photo"; filename="news.jpg"${CRLF}Content-Type: image/jpeg${CRLF}${CRLF}`
+        );
+        const footer = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
+        const body = Buffer.concat([textPart, imgBuffer, footer]);
+        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+          method: "POST",
+          headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+          body,
+          timeout: 20000,
+        });
+        const d = await res.json();
+        if (d.ok) {
+          addLog("info", "Rasm buffer bilan yuborildi ✓");
+          return d;
+        }
+        addLog("warn", "Buffer yuborishda Telegram xato: " + JSON.stringify(d));
+      }
+    } catch(e) {
+      addLog("warn", "Rasmni yuklashda xato: " + e.message);
+    }
+
+    // Fallback 2: URL to'g'ridan-to'g'ri Telegramga berish
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
+        timeout: 15000,
+      });
+      const d = await res.json();
+      if (d.ok) {
+        addLog("info", "Rasm URL bilan yuborildi ✓");
+        return d;
+      }
+      addLog("warn", "URL yuborishda Telegram xato: " + JSON.stringify(d));
+    } catch(e) {
+      addLog("warn", "URL fallback xato: " + e.message);
+    }
+
+    // Fallback 3: rasmsiz matn yuborish
+    addLog("warn", "Rasm yuklanmadi, rasmsiz yuborilmoqda...");
+    return sendToTelegram(text, null);
   }
+
+  // Rasmsiz yuborish
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
+    timeout: 15000,
   });
   return res.json();
 }

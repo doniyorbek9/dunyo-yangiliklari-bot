@@ -1,4 +1,6 @@
 const express = require("express");
+const Jimp = require("jimp");
+const path = require("path");
 const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 const cron = require("node-cron");
 require("dotenv").config();
@@ -272,8 +274,74 @@ async function getSubscriberCount() {
   } catch(e) { return null; }
 }
 
+async function addWatermark(imageUrl) {
+  try {
+    const logoPath = path.join(__dirname, "public", "logo.png");
+    if (!fs.existsSync(logoPath)) return null;
+
+    // Download image
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return null;
+    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+
+    const [image, logo] = await Promise.all([
+      Jimp.read(imgBuffer),
+      Jimp.read(logoPath),
+    ]);
+
+    // Resize logo — pastki o'ng burchak uchun kichikroq
+    const logoSize = Math.round(image.getWidth() * 0.22);
+    logo.resize(logoSize, Jimp.AUTO);
+
+    // Pastki o'ng burchakka joylashtirish
+    const x = image.getWidth() - logo.getWidth() - 12;
+    const y = image.getHeight() - logo.getHeight() - 12;
+
+    image.composite(logo, x, y, {
+      mode: Jimp.BLEND_SOURCE_OVER,
+      opacitySource: 0.85,
+      opacityDest: 1,
+    });
+
+    const resultBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
+    return resultBuffer;
+  } catch(e) {
+    addLog("warn", "Watermark xato: " + e.message);
+    return null;
+  }
+}
+
 async function sendToTelegram(text, imageUrl) {
   if (imageUrl) {
+    try {
+      const watermarked = await addWatermark(imageUrl);
+      if (watermarked) {
+        // Multipart form bilan yuborish
+        const boundary = "----FormBoundary" + Math.random().toString(36).slice(2);
+        const textEncoder = new TextEncoder();
+
+        const header = textEncoder.encode(
+          `--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${CHANNEL_ID}\r\n` +
+          `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${text}\r\n` +
+          `--${boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nMarkdown\r\n` +
+          `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="news.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
+        );
+        const footer = textEncoder.encode(`\r\n--${boundary}--\r\n`);
+        const body = Buffer.concat([Buffer.from(header), watermarked, Buffer.from(footer)]);
+
+        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+          method: "POST",
+          headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+          body,
+        });
+        const d = await res.json();
+        if (d.ok) return d;
+      }
+    } catch(e) {
+      addLog("warn", "Watermark yuborishda xato: " + e.message);
+    }
+
+    // Fallback: watermarksiz URL bilan yuborish
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -126,9 +126,9 @@ textarea{min-height:65px;resize:vertical}
   <div class="topbar">
     <div class="dot" id="main-dot"></div>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="#2AABEE"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.012 9.482c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.12 14.063l-2.96-.924c-.642-.204-.655-.642.136-.953l11.566-4.462c.535-.194 1.003.13.7 1.524z"/></svg>
-    <h1>Global Xabar</h1>
-    <span class="ch">@global_xabar_uz</span>
-    <span class="subs-badge" id="topbar-subs" style="display:none"></span>
+    <h1>Dunyo Yangiliklari Bot</h1>
+    <span class="ch">@dunyo_yangiliklari_1_1</span>
+    <span class="subs-badge" id="subs-badge">👥 —</span>
     <button class="logout-btn" onclick="doLogout()">Chiqish</button>
   </div>
 
@@ -138,10 +138,10 @@ textarea{min-height:65px;resize:vertical}
     <div class="bot-status-bar" id="bot-status-bar"></div>
 
     <div class="grid4">
-      <div class="stat"><div class="stat-val" id="stat-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
+      <div class="stat"><div class="stat-val" id="s-sent">0</div><div class="stat-lbl">Bugun yuborildi</div></div>
       <div class="stat"><div class="stat-val" id="s-daily">0</div><div class="stat-lbl">Digest uchun</div></div>
-      <div class="stat"><div class="stat-val" id="stat-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
-      <div class="stat"><div class="stat-val" id="subs-badge">—</div><div class="stat-lbl">Obunachi</div></div>
+      <div class="stat"><div class="stat-val" id="s-last">—</div><div class="stat-lbl">Oxirgi yuborish</div></div>
+      <div class="stat"><div class="stat-val" id="s-mem">0</div><div class="stat-lbl">Xotirada</div></div>
     </div>
 
     <div class="grid2">
@@ -174,6 +174,23 @@ textarea{min-height:65px;resize:vertical}
           </button>
           <div class="digest-box" id="digest-result"></div>
         </div>
+<div style="display:flex;gap:6px;margin-bottom:0">
+            <input id="search-query" type="text" placeholder="Misol: urush, sun'iy intellekt, iqtisodiyot..." style="margin-bottom:0">
+            <button class="btn btn-orange btn-sm" style="width:auto;flex-shrink:0" onclick="doSearch()">
+              <span id="search-icon">🔍</span>
+            </button>
+          </div>
+          <div class="search-result" id="search-result">
+            <img class="search-img" id="search-img" src="" alt="">
+            <div class="search-text" id="search-text"></div>
+            <div class="search-actions">
+              <button class="btn btn-green btn-sm" onclick="sendSearchResult()">📤 Kanalga yuborish</button>
+              <button class="btn btn-gray btn-sm" onclick="closeSearch()">✕ Yopish</button>
+            </div>
+          </div>
+        </div>
+
+
         <!-- WEATHER -->
         <div class="card">
           <div class="card-title">🌤 Ob-havo (Toshkent)</div>
@@ -343,9 +360,9 @@ async function loadStatus() {
     if (!d || !d.ok) return;
     const el = id => document.getElementById(id);
     if (el('stat-sent')) el('stat-sent').textContent = d.sentToday || 0;
-    if (el('subs-badge')) el('subs-badge').textContent = d.subscribers || '—';
-    if (el('stat-last')) el('stat-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '—';
-    if (el('s-daily')) el('s-daily').textContent = d.dailyCount || 0;
+    if (el('stat-subs')) el('stat-subs').textContent = d.subscribers || '---';
+    if (el('stat-last')) el('stat-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '---';
+    if (el('stat-status')) el('stat-status').textContent = d.botPaused ? 'Toxtatilgan' : 'Ishlayapti';
     if (d.settings) {
       srcState = d.settings;
       ['kunuz','daryo','newsapi','bbcuz','gazeta','xabar','podrobno','xabarchi'].forEach(k => {

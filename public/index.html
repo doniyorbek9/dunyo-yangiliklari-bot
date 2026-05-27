@@ -315,6 +315,74 @@ textarea{min-height:65px;resize:vertical}
 let authToken = localStorage.getItem('bot_token') || '';
 let srcState = {};
 
+async function doLogin() {
+  const login = document.getElementById('l-login').value.trim();
+  const pass = document.getElementById('l-pass').value.trim();
+  const err = document.getElementById('login-err');
+  err.style.display = 'none';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login, password: pass })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      authToken = d.token;
+      localStorage.setItem('bot_token', authToken);
+      showMain();
+    } else {
+      err.style.display = 'block';
+    }
+  } catch(e) { err.style.display = 'block'; }
+}
+
+function showMain() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('main-page').style.display = 'block';
+  loadStatus();
+}
+
+async function apiFetch(url, body = null) {
+  const opts = { headers: { 'x-auth-token': authToken } };
+  if (body !== null) {
+    opts.method = 'POST';
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, opts);
+  return res.json();
+}
+
+async function loadStatus() {
+  try {
+    const d = await apiFetch('/api/status');
+    if (!d || !d.ok) return;
+    const el = id => document.getElementById(id);
+    if (el('stat-sent')) el('stat-sent').textContent = d.sentToday || 0;
+    if (el('stat-subs')) el('stat-subs').textContent = d.subscribers || '---';
+    if (el('stat-last')) el('stat-last').textContent = d.lastSent ? new Date(d.lastSent).toLocaleTimeString('uz-UZ') : '---';
+    if (el('stat-status')) el('stat-status').textContent = d.botPaused ? 'Toxtatilgan' : 'Ishlayapti';
+    if (d.settings) {
+      srcState = d.settings;
+      ['kunuz','daryo','newsapi','bbcuz','gazeta','xabar','podrobno','xabarchi'].forEach(k => {
+        const t = document.getElementById('t-' + k);
+        if (t) t.classList.toggle('on', !!d.settings[k]);
+      });
+    }
+    if (d.logs && el('log')) {
+      el('log').innerHTML = d.logs.map(l =>
+        '<div class="log-item log-' + l.type + '"><span class="log-time">' + l.time + '</span> ' + l.msg + '</div>'
+      ).join('');
+    }
+  } catch(e) {}
+}
+
+async function clearLog() {
+  await apiFetch('/api/clear-logs', {});
+  loadStatus();
+}
+
 
 async function sendCustom() {
   const text = document.getElementById('my-text').value.trim();

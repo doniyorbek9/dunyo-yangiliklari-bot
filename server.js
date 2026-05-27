@@ -499,3 +499,180 @@ app.listen(PORT, () => {
   startCronJobs();
   addLog("info", "Manbalar: Kun.uz + Daryo.uz + Xabarchi + Gazeta + Xabar + BBC + Podrobno + NewsAPI");
 });
+
+// ============ OB-HAVO VA DOLLAR KURSI ============
+
+const morningSettings = {
+  weatherHour: 6,
+  rateHour: 6,
+  weatherText: null, // tahrirlangan matn
+  rateText: null,    // tahrirlangan matn
+};
+
+let weatherCronJob = null;
+let rateCronJob = null;
+
+function startMorningCrons() {
+  if (weatherCronJob) weatherCronJob.stop();
+  if (rateCronJob) rateCronJob.stop();
+
+  weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, () => {
+    addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
+    runWeather();
+  });
+
+  rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, () => {
+    addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
+    runRate();
+  });
+
+  addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
+}
+
+async function fetchWeather() {
+  try {
+    const res = await fetch("https://wttr.in/Tashkent?format=j1", { timeout: 8000 });
+    const data = await res.json();
+    const cur = data.current_condition[0];
+    const temp = cur.temp_C;
+    const feels = cur.FeelsLikeC;
+    const desc = cur.lang_uz?.[0]?.value || cur.weatherDesc[0].value;
+    const humidity = cur.humidity;
+    const wind = cur.windspeedKmph;
+    const tomorrow = data.weather[1];
+    const maxT = tomorrow.maxtempC;
+    const minT = tomorrow.mintempC;
+
+    return { temp, feels, desc, humidity, wind, maxT, minT };
+  } catch(e) {
+    addLog("warn", "Ob-havo xato: " + e.message);
+    return null;
+  }
+}
+
+async function fetchRates() {
+  try {
+    const res = await fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/", { timeout: 8000 });
+    const data = await res.json();
+    const find = (code) => data.find(r => r.Ccy === code);
+    const usd = find("USD");
+    const eur = find("EUR");
+    const rub = find("RUB");
+    return { usd: usd?.Rate, eur: eur?.Rate, rub: rub?.Rate };
+  } catch(e) {
+    addLog("warn", "Kurs xato: " + e.message);
+    return null;
+  }
+}
+
+function getWeatherEmoji(temp) {
+  if (temp >= 35) return "🥵";
+  if (temp >= 25) return "☀️";
+  if (temp >= 15) return "⛅";
+  if (temp >= 5) return "🌥️";
+  return "❄️";
+}
+
+async function buildWeatherText(custom = null) {
+  if (custom) return custom + AD_TEXT;
+  const w = await fetchWeather();
+  if (!w) throw new Error("Ob-havo ma'lumoti olinmadi");
+  const emoji = getWeatherEmoji(Number(w.temp));
+  const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
+  return `${emoji} *Bugungi ob-havo — Toshkent | ${today}*
+
+🌡 Harorat: *${w.temp}°C* (his qilish: ${w.feels}°C)
+🌤 Holat: ${w.desc}
+💧 Namlik: ${w.humidity}%
+💨 Shamol: ${w.wind} km/soat
+
+📅 *Ertaga:* ${w.minT}°C — ${w.maxT}°C
+
+Kiyinishda ehtiyot bo'ling! ${emoji}
+${AD_TEXT}`;
+}
+
+async function buildRateText(custom = null) {
+  if (custom) return custom + AD_TEXT;
+  const r = await fetchRates();
+  if (!r) throw new Error("Kurs ma'lumoti olinmadi");
+  const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
+  const usd = Number(r.usd).toLocaleString("uz-UZ");
+  const eur = Number(r.eur).toLocaleString("uz-UZ");
+  const rub = (Number(r.rub) * 100).toFixed(0);
+  return `💵 *Valyuta kurslari — ${today}*
+_(O'zbekiston Markaziy banki)_
+
+🇺🇸 1 USD = *${usd}* so'm
+🇪🇺 1 EUR = *${eur}* so'm
+🇷🇺 100 RUB = *${rub}* so'm
+
+📊 Kurslar har kuni yangilanadi
+${AD_TEXT}`;
+}
+
+async function runWeather(customText = null) {
+  try {
+    const text = await buildWeatherText(customText || morningSettings.weatherText);
+    const result = await sendToTelegram(text, null);
+    if (result.ok) {
+      addLog("ok", "Ob-havo yuborildi ✓");
+      morningSettings.weatherText = null;
+      return { ok: true, text };
+    } else throw new Error(result.description);
+  } catch(e) {
+    addLog("err", "Ob-havo: " + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+async function runRate(customText = null) {
+  try {
+    const text = await buildRateText(customText || morningSettings.rateText);
+    const result = await sendToTelegram(text, null);
+    if (result.ok) {
+      addLog("ok", "Kurs yuborildi ✓");
+      morningSettings.rateText = null;
+      return { ok: true, text };
+    } else throw new Error(result.description);
+  } catch(e) {
+    addLog("err", "Kurs: " + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// Morning routes
+app.get("/api/morning-status", authMiddleware, async (req, res) => {
+  try {
+    const [weather, rate] = await Promise.all([fetchWeather(), fetchRates()]);
+    const weatherPreview = await buildWeatherText();
+    const ratePreview = await buildRateText();
+    res.json({ ok: true, weather, rate, weatherPreview, ratePreview, morningSettings });
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+app.post("/api/send-weather", authMiddleware, async (req, res) => {
+  const { customText } = req.body;
+  res.json(await runWeather(customText || null));
+});
+
+app.post("/api/send-rate", authMiddleware, async (req, res) => {
+  const { customText } = req.body;
+  res.json(await runRate(customText || null));
+});
+
+app.post("/api/morning-settings", authMiddleware, (req, res) => {
+  const { weatherHour, rateHour, weatherText, rateText } = req.body;
+  if (weatherHour >= 4 && weatherHour <= 12) morningSettings.weatherHour = Number(weatherHour);
+  if (rateHour >= 4 && rateHour <= 12) morningSettings.rateHour = Number(rateHour);
+  if (typeof weatherText === "string") morningSettings.weatherText = weatherText || null;
+  if (typeof rateText === "string") morningSettings.rateText = rateText || null;
+  startMorningCrons();
+  addLog("info", `Ertalab sozlandi: ob-havo ${morningSettings.weatherHour}:00, kurs ${morningSettings.rateHour}:00`);
+  res.json({ ok: true, morningSettings });
+});
+
+// Start morning crons
+startMorningCrons();

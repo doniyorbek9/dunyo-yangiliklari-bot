@@ -383,6 +383,43 @@ async function clearLog() {
   loadStatus();
 }
 
+async function sendAI() {
+  const input = document.querySelector('input[placeholder*="urush"], input[placeholder*="Misol"]');
+  const query = input ? input.value.trim() : '';
+  const btn = document.getElementById('ai-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const d = await apiFetch('/api/send-now', {});
+    if (d && d.ok) {
+      alert('✅ Yangilik yuborildi!');
+      loadStatus();
+    } else {
+      alert('❌ Xato: ' + (d && d.error ? d.error : 'Noma\'lum xato'));
+    }
+  } catch(e) {
+    alert('❌ ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function toggleBot(action) {
+  const d = await apiFetch('/api/toggle-bot', { action });
+  if (d && d.ok) loadStatus();
+}
+
+async function digestNow() {
+  const d = await apiFetch('/api/digest-now', {});
+  if (d && d.ok) {
+    alert('✅ Digest yuborildi!');
+    loadStatus();
+  } else {
+    alert('❌ ' + (d && d.error ? d.error : 'Xato'));
+  }
+}
+
+const sendDigest = digestNow;
+
 
 async function sendCustom() {
   const text = document.getElementById('my-text').value.trim();

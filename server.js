@@ -2,7 +2,19 @@ const express = require("express");
 const Jimp = require("jimp");
 const path = require("path");
 const fs = require("fs");
-const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
+const _fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
+
+// node-fetch v3 timeout wrapper (AbortController bilan)
+async function fetch(url, options = {}) {
+  const { timeout = 10000, ...rest } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await _fetch(url, { ...rest, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 const cron = require("node-cron");
 require("dotenv").config();
 
@@ -178,7 +190,7 @@ async function groqRequest(prompt, maxTokens = 700) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7, max_tokens: maxTokens,
     }),
@@ -364,7 +376,7 @@ async function runCycle() {
       addLog("ok", `[${news.source}] Yuborildi ✓`);
       return { ok: true, text: finalText, category: translated.category, source: news.source };
     } else {
-      throw new Error(result.description);
+      throw new Error(result.description || JSON.stringify(result));
     }
   } catch(e) {
     addLog("err", "Xato: " + e.message);
@@ -374,13 +386,27 @@ async function runCycle() {
 
 async function runDigest() {
   if (isRunning) return { ok: false, error: "Band" };
-  if (dailyNews.length === 0) return { ok: false, error: "Bugun hech narsa yuborilmagan" };
   isRunning = true;
   try {
     addLog("info", "Digest tayyorlanmoqda...");
     const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
-    const list = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
-    const prompt = `O'zbek Telegram kanali uchun kun yakunini yoz.
+
+    let digestText;
+    if (dailyNews.length === 0) {
+      // Server restart bo'lsa yoki yangilik yo'q bo'lsa — umumiy digest
+      addLog("warn", "dailyNews bo'sh, umumiy digest tayyorlanmoqda...");
+      const prompt = `O'zbek Telegram kanali uchun bugungi kun yakuniy digest yoz (${today}).
+Dunyo, O'zbekiston, iqtisodiyot, sport, texnologiya mavzularini qamrab ol.
+Format:
+- Sarlavha: "📰 *Bugun nimalar bo'ldi? — ${today}*"
+- 6-8 ta dolzarb mavzu, har biri 1-2 jumlada
+- O'zbek tilida, emoji bilan
+- Oxirida: #digest #bugunyangiliklari
+Faqat tayyor post matnini yoz.`;
+      digestText = await groqRequest(prompt, 1200);
+    } else {
+      const list = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
+      const prompt = `O'zbek Telegram kanali uchun kun yakunini yoz.
 Bugun yuborilgan yangiliklar:
 ${list}
 
@@ -392,13 +418,15 @@ Format:
 - Oxirida: #digest #bugunyangiliklari
 
 Faqat tayyor post matnini yoz.`;
-    const digestText = await groqRequest(prompt, 1500);
+      digestText = await groqRequest(prompt, 1500);
+    }
+
     const fullText = digestText + AD_TEXT;
     const result = await sendToTelegram(fullText, null);
     if (result.ok) {
       addLog("ok", "Digest yuborildi!");
       return { ok: true, text: fullText };
-    } else throw new Error(result.description);
+    } else throw new Error(result.description || JSON.stringify(result));
   } catch(e) {
     addLog("err", "Digest: " + e.message);
     return { ok: false, error: e.message };
@@ -434,6 +462,7 @@ app.post("/api/toggle-bot", authMiddleware, (req, res) => {
     addLog("info", "Ertadan boshlab rejimi yoqildi");
   } else {
     botPaused = false; startFromTomorrow = false;
+    isRunning = false; // Eski stuck flag ni tozalash
     addLog("ok", "Bot ishga tushdi");
   }
   res.json({ ok: true, botPaused, startFromTomorrow });

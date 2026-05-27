@@ -11,7 +11,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const GROQ_KEY = process.env.GROQ_KEY;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const CHANNEL_LINK = "https://t.me/dunyo_yangiliklari_1_1";
+const CHANNEL_LINK = "https://t.me/global_xabar_uz";
 const AD_TEXT = `\n\n📢 Obuna bo'ling: ${CHANNEL_LINK}`;
 
 let sentToday = 0;
@@ -185,31 +185,52 @@ async function groqRequest(prompt, maxTokens = 700) {
   return data.choices[0].message.content.trim();
 }
 
+function cleanText(text) {
+  return text
+    .replace(/&laquo;/g, '"').replace(/&raquo;/g, '"')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
+    .replace(/&#[0-9]+;/g, '').replace(/&[a-z]+;/g, '')
+    .trim();
+}
+
 async function translateWithGroq(news) {
   const isUz = ["Kun.uz","Daryo.uz","Xabarchi.com","Gazeta.uz","Xabar.uz","BBC O'zbek"].includes(news.source);
   const isRu = news.lang === "ru";
 
-  const prompt = `Sen Telegram kanal muharririsan. Quyidagi yangilikni ${isUz ? "o'zbek tilida" : isRu ? "ruscha dan o'zbekchaga tarjima qilib" : "inglizchadan o'zbekchaga tarjima qilib"} chiroyli Telegram post qil.
+  const cleanTitle = cleanText(news.title);
+  const cleanDesc = cleanText(news.description);
 
-Sarlavha: ${news.title}
-Tavsif: ${news.description}
+  const langInstruction = isUz 
+    ? "Bu yangilik o'zbek tilida. Aynan o'zbek tilida yoz, ruscha so'z ishlatma."
+    : isRu 
+    ? "Bu yangilik ruscha. O'ZBEK tiliga to'liq tarjima qil, birorta ruscha so'z qoldirma."
+    : "Bu yangilik inglizcha. O'ZBEK tiliga to'liq tarjima qil, birorta inglizcha so'z qoldirma.";
+
+  const prompt = `Sen Telegram kanal muharririsan. ${langInstruction}
+
+Sarlavha: ${cleanTitle}
+Tavsif: ${cleanDesc}
 Manba: ${news.source}
 
-QOIDALAR:
-1. Sarlavhani jozibali qil — "🔴 Shok:", "⚡ Tezkor:", "🌍 Muhim:", "📌 Diqqat:" kabilardan birini qo'sh
-2. Sarlavha *yulduzcha* ichida: *🔴 Sarlavha*
-3. 3-4 jumla, qisqa, tushunarli, qiziqarli
-4. 1-2 emoji qo'sh
-5. Oxirida: "📎 Manba: ${news.source}"
-6. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
+MUHIM QOIDALAR:
+1. FAQAT o'zbek tilida yoz — ruscha yoki inglizcha so'z ISHLATMA
+2. Sarlavhani jozibali qil: "🔴 Shok:", "⚡ Tezkor:", "🌍 Muhim:", "📌 Diqqat:", "🔥 Yangilik:" kabilardan birini qo'sh
+3. Sarlavhani *yulduzcha* ichida yoz: *🔴 Sarlavha matni*
+4. 3-4 jumla, qisqa va qiziqarli
+5. 1-2 mos emoji qo'sh
+6. Oxirida: "📎 Manba: ${news.source}"
+7. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
 
-FAQAT JSON qaytar:
+FAQAT JSON qaytar, boshqa hech narsa yozma:
 {"text": "post matni", "category": "kategoriya"}`;
 
   const raw = await groqRequest(prompt, 700);
   const jsonMatch = raw.match(/\{[\s\S]*?\}/);
   if (!jsonMatch) throw new Error("JSON topilmadi");
-  return JSON.parse(jsonMatch[0]);
+  const result = JSON.parse(jsonMatch[0]);
+  result.text = cleanText(result.text);
+  return result;
 }
 
 async function searchTopic(query) {
@@ -256,7 +277,7 @@ async function sendToTelegram(text, imageUrl) {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
     });
     const d = await res.json();
     if (!d.ok) return sendToTelegram(text, null);
@@ -265,7 +286,7 @@ async function sendToTelegram(text, imageUrl) {
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "HTML" }),
+    body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
   });
   return res.json();
 }

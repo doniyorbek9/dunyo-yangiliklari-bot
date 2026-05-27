@@ -127,6 +127,27 @@ cron.schedule("0 0 * * *", () => {
   addLog("info", "Hisoblar nollandi");
 });
 
+function isGoodImageUrl(url) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  // Sifatsiz rasmlarni filter qilish
+  const badPatterns = [
+    "maps.google", "maps.gstatic", "staticmap", "maps?",    // Google Maps
+    "avatar", "profile", "icon", "logo", "favicon",          // Icon/logo
+    "banner", "ads", "advert", "pixel", "track",             // Reklama
+    "1x1", "placeholder", "blank", "spacer",                 // Bo'sh rasmlar
+    ".gif",                                                    // GIF animatsiya
+    "gravatar", "disqus",                                     // Foydalanuvchi avatarlari
+  ];
+  if (badPatterns.some(p => lower.includes(p))) return false;
+  // Faqat rasm kengaytmalari
+  const goodExt = [".jpg", ".jpeg", ".png", ".webp"];
+  // URL kengaytmasi yo'q bo'lsa ham qabul qilish (ko'pchilik CDN URL)
+  const hasExt = goodExt.some(e => lower.includes(e));
+  const hasCDN = lower.includes("cdn") || lower.includes("image") || lower.includes("photo") || lower.includes("media") || lower.includes("upload") || lower.includes("news");
+  return hasExt || hasCDN;
+}
+
 async function fetchRSS(url, sourceName, lang = "uz") {
   try {
     const res = await fetch(url, { timeout: 8000 });
@@ -139,9 +160,10 @@ async function fetchRSS(url, sourceName, lang = "uz") {
       const img = item.match(/<enclosure[^>]+url="([^"]+)"/)?.[1] ||
                   item.match(/<media:content[^>]+url="([^"]+)"/)?.[1] ||
                   item.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] || null;
+      const filteredImg = isGoodImageUrl(img) ? img : null;
       return {
         title, description: desc.replace(/<[^>]+>/g, "").trim().slice(0, 300),
-        url: link, imageUrl: img, source: sourceName, lang
+        url: link, imageUrl: filteredImg, source: sourceName, lang
       };
     }).filter(a => a.title && !sentTitles.has(a.title));
   } catch(e) {

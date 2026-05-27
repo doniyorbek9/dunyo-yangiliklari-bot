@@ -14,7 +14,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const GROQ_KEY = process.env.GROQ_KEY;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const CHANNEL_LINK = "https://t.me/global_xabar_uz";
+const CHANNEL_LINK = "https://t.me/global\\_xabar\\_uz";
 const AD_TEXT = `\n\n📢 Obuna bo'ling: ${CHANNEL_LINK}`;
 
 let sentToday = 0;

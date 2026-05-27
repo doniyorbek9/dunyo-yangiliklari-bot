@@ -1,6 +1,7 @@
 const express = require("express");
 const Jimp = require("jimp");
 const path = require("path");
+const fs = require("fs");
 const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 const cron = require("node-cron");
 require("dotenv").config();
@@ -438,6 +439,28 @@ app.post("/api/toggle-bot", authMiddleware, (req, res) => {
   res.json({ ok: true, botPaused, startFromTomorrow });
 });
 
+async function searchTopic(query) {
+  const prompt = `Sen Telegram kanal muharririsan. O'zbek tilida "${query}" mavzusida qisqa, jozibali post yoz.
+MUHIM QOIDALAR:
+1. FAQAT o'zbek tilida yoz
+2. Sarlavhani *yulduzcha* ichida yoz: *🔍 Sarlavha*
+3. 3-4 jumla, qisqa va qiziqarli
+4. 1-2 mos emoji qo'sh
+5. Kategoriya: dunyo, sport, iqtisodiyot, siyosat, texnologiya, salomatlik
+
+FAQAT JSON qaytar:
+{"text": "post matni", "category": "kategoriya"}`;
+  const raw = await groqRequest(prompt, 700);
+  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+  if (!jsonMatch) throw new Error("JSON topilmadi");
+  const result = JSON.parse(jsonMatch[0]);
+  result.text = cleanText(result.text);
+  return result;
+}
+
+app.post("/api/search", authMiddleware, async (req, res) => {
+  const { query } = req.body;
+  if (!query) return res.json({ ok: false, error: "So'rov kerak" });
   try {
     addLog("info", `Qidiruv: "${query}"`);
     const result = await searchTopic(query);

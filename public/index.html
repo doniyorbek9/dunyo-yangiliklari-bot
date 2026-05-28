@@ -152,9 +152,21 @@ textarea{min-height:65px;resize:vertical}
         <button class="btn btn-gray" onclick="sendCustom()">📤 Yuborish</button>
         <div id="custom-res" style="font-size:12px;margin-top:4px;color:#8b949e"></div>
       </div>
-    </div>
 
-    <div>
+      <div class="card">
+        <div class="card-title">📊 Poll yuborish</div>
+        <input id="poll-question" type="text" placeholder="Savol matni..." style="margin-bottom:6px">
+        <input id="poll-opt1" type="text" placeholder="1-variant" style="margin-bottom:4px">
+        <input id="poll-opt2" type="text" placeholder="2-variant" style="margin-bottom:4px">
+        <input id="poll-opt3" type="text" placeholder="3-variant (ixtiyoriy)" style="margin-bottom:4px">
+        <input id="poll-opt4" type="text" placeholder="4-variant (ixtiyoriy)" style="margin-bottom:6px">
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="background:#5865f2;flex:1" onclick="sendPollNow()">📊 Yuborish</button>
+          <button class="btn btn-gray" style="flex:1" onclick="fillDefaultPoll()">✨ Tayyor poll</button>
+        </div>
+        <div id="poll-res" style="font-size:12px;margin-top:6px;color:#8b949e"></div>
+      </div>
+
       <div class="card">
         <div class="card-title">⏰ Jadval sozlamalari</div>
         <div class="sched-row">
@@ -330,6 +342,38 @@ async function sendCustom() {
   const d = await apiFetch('/api/send-custom', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,imageUrl})});
   if (d) { res.style.color = d.ok?'#3fb950':'#f85149'; res.textContent = d.ok ? '✅ Yuborildi!' : '❌ '+(d.description||d.error); }
   loadStatus();
+}
+
+async function sendPollNow() {
+  const question = document.getElementById('poll-question').value.trim();
+  const opt1 = document.getElementById('poll-opt1').value.trim();
+  const opt2 = document.getElementById('poll-opt2').value.trim();
+  const opt3 = document.getElementById('poll-opt3').value.trim();
+  const opt4 = document.getElementById('poll-opt4').value.trim();
+  const res = document.getElementById('poll-res');
+  if (!question || !opt1 || !opt2) { res.style.color='#f85149'; res.textContent='❌ Savol va kamida 2 variant kerak!'; return; }
+  const options = [opt1, opt2, opt3, opt4].filter(Boolean);
+  res.style.color='#8b949e'; res.textContent='⏳ Yuborilmoqda...';
+  const d = await apiFetch('/api/send-poll', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question, options})});
+  if (d) {
+    res.style.color = d.ok ? '#3fb950' : '#f85149';
+    res.textContent = d.ok ? '✅ Poll yuborildi!' : '❌ '+(d.description||d.error);
+    if (d.ok) ['poll-question','poll-opt1','poll-opt2','poll-opt3','poll-opt4'].forEach(id => document.getElementById(id).value='');
+  }
+}
+
+function fillDefaultPoll() {
+  const polls = [
+    { q:"📊 So'nggi paytda narxlar siz uchun qanday o'zgardi?", o:["📈 Sezilarli oshdi","📉 Biroz tushdi","➡️ O'zgarmadi","🤷 Sezmaganman"] },
+    { q:"💼 Bugun iqtisodiy vaziyatni qanday baholaysiz?", o:["😟 Yomon","😐 O'rtacha","🙂 Yaxshi","😊 Juda yaxshi"] },
+    { q:"🛒 Oylik xarid xarajatlaringiz qanday o'zgardi?", o:["⬆️ Ko'paydi","⬇️ Kamaydi","↔️ Bir xil","🤔 Bilmayman"] },
+  ];
+  const p = polls[Math.floor(Math.random()*polls.length)];
+  document.getElementById('poll-question').value = p.q;
+  document.getElementById('poll-opt1').value = p.o[0];
+  document.getElementById('poll-opt2').value = p.o[1];
+  document.getElementById('poll-opt3').value = p.o[2]||'';
+  document.getElementById('poll-opt4').value = p.o[3]||'';
 }
 
 async function toggleSource(key) {

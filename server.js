@@ -615,6 +615,48 @@ app.post("/api/settings", authMiddleware, (req, res) => {
   res.json({ ok: true, settings });
 });
 
+// ─── POLL ──────────────────────────────────────────────────────────────────
+async function sendPoll(question, options, isAnonymous = true) {
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPoll`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHANNEL_ID,
+      question,
+      options,
+      is_anonymous: isAnonymous,
+      allows_multiple_answers: false,
+    }),
+    timeout: 15000,
+  });
+  return res.json();
+}
+
+// Haftalik avtomatik poll — har shanba 19:00
+cron.schedule("0 19 * * 6", async () => {
+  if (botPaused) return;
+  const polls = [
+    { question: "📊 So'nggi paytda narxlar siz uchun qanday o'zgardi?", options: ["📈 Sezilarli oshdi", "📉 Biroz tushdi", "➡️ O'zgarmadi", "🤷 Sezmaganman"] },
+    { question: "💼 Bugun iqtisodiy vaziyatni qanday baholaysiz?", options: ["😟 Yomon", "😐 O'rtacha", "🙂 Yaxshi", "😊 Juda yaxshi"] },
+    { question: "🛒 Oylik xarid xarajatlaringiz qanday o'zgardi?", options: ["⬆️ Ko'paydi", "⬇️ Kamaydi", "↔️ Bir xil", "🤔 Bilmayman"] },
+  ];
+  const poll = polls[Math.floor(Math.random() * polls.length)];
+  const result = await sendPoll(poll.question, poll.options);
+  addLog(result.ok ? "ok" : "err", "Haftalik poll " + (result.ok ? "yuborildi ✓" : "xato: " + JSON.stringify(result)));
+});
+
+app.post("/api/send-poll", authMiddleware, async (req, res) => {
+  const { question, options } = req.body;
+  if (!question || !options || options.length < 2)
+    return res.json({ ok: false, error: "Savol va kamida 2 ta variant kerak" });
+  try {
+    const result = await sendPoll(question, options);
+    addLog(result.ok ? "ok" : "err", "Poll: " + question.slice(0, 40));
+    res.json(result);
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
+// ───────────────────────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   addLog("ok", `Server: http://localhost:${PORT}`);

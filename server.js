@@ -744,13 +744,10 @@ async function runMorningCombined(customWeather = null, customRate = null) {
     ]);
     // Bitta xabarda birlashtirish
     const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
-    const combined = `🌅 *Xayrli tong! — ${today}*
-
-` + weatherText.replace(/📢.*$/s, '').trim() + '
-
-' + '─'.repeat(25) + '
-
-' + rateText.replace(/📢.*$/s, '').trim() + AD_TEXT;
+    const cleanWeather = weatherText.split("📢")[0].trim();
+    const cleanRate = rateText.split("📢")[0].trim();
+    const sep = "─".repeat(25);
+    const combined = "🌅 *Xayrli tong! — " + today + "*\n\n" + cleanWeather + "\n\n" + sep + "\n\n" + cleanRate + AD_TEXT;
     const result = await sendToTelegram(combined, null);
     if (result.ok) {
       addLog("ok", "Ertalab xabar birgalikda yuborildi ✓");

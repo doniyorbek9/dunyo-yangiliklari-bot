@@ -122,8 +122,11 @@ textarea{min-height:65px;resize:vertical}
       </div>
 
       <div class="card">
-        <div class="card-title">🌤 Ob-havo (Toshkent)</div>
-        <div id="weather-stats"></div>
+        <div class="card-title">🌅 Ertalab xabari (Ob-havo + Kurs)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div id="weather-stats"></div>
+          <div id="rate-stats"></div>
+        </div>
         <div class="sched-row" style="margin-bottom:8px">
           <label>Yuborish vaqti:</label>
           <select id="sel-weather-hour">
@@ -133,35 +136,12 @@ textarea{min-height:65px;resize:vertical}
           </select>
         </div>
         <div class="weather-preview" id="weather-preview"></div>
-        <textarea class="edit-area" id="weather-edit" placeholder="Ob-havo matnini tahrirlang..."></textarea>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-gray btn-sm" onclick="previewWeather()">👁 Ko'rish</button>
-          <button class="btn btn-gray btn-sm" onclick="editWeather()">✏️ Tahrirlash</button>
-          <button class="btn btn-green btn-sm" id="weather-btn" onclick="sendWeather()"><span id="weather-icon">☀️</span> Yuborish</button>
+          <button class="btn btn-gray btn-sm" onclick="previewMorning()">👁 Ko'rish</button>
+          <button class="btn btn-green btn-sm" id="morning-btn" onclick="sendMorning()"><span id="morning-icon">🌅</span> Hozir yuborish</button>
         </div>
-        <div id="weather-res" style="font-size:12px;margin-top:6px;color:#8b949e"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">💵 Dollar kursi (CBU)</div>
-        <div id="rate-stats"></div>
-        <div class="sched-row" style="margin-bottom:8px">
-          <label>Yuborish vaqti:</label>
-          <select id="sel-rate-hour">
-            <option value="4">04:00</option><option value="5">05:00</option>
-            <option value="6" selected>06:00</option><option value="7">07:00</option>
-            <option value="8">08:00</option><option value="9">09:00</option><option value="10">10:00</option>
-          </select>
-        </div>
-        <div class="weather-preview" id="rate-preview"></div>
-        <textarea class="edit-area" id="rate-edit" placeholder="Kurs matnini tahrirlang..."></textarea>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-gray btn-sm" onclick="previewRate()">👁 Ko'rish</button>
-          <button class="btn btn-gray btn-sm" onclick="editRate()">✏️ Tahrirlash</button>
-          <button class="btn btn-green btn-sm" id="rate-btn" onclick="sendRate()"><span id="rate-icon">💵</span> Yuborish</button>
-        </div>
-        <div id="rate-res" style="font-size:12px;margin-top:6px;color:#8b949e"></div>
-        <button class="btn btn-orange" onclick="saveMorningSettings()" style="margin-top:8px">💾 Vaqtlarni saqlash</button>
+        <div id="morning-res" style="font-size:12px;margin-top:6px;color:#8b949e"></div>
+        <button class="btn btn-orange" onclick="saveMorningSettings()" style="margin-top:8px">💾 Vaqtni saqlash</button>
         <div class="save-ok" id="morning-save-ok">✅ Saqlandi!</div>
       </div>
 
@@ -399,6 +379,26 @@ function editWeather() {
   edit.style.display = 'block'; edit.value = weatherPreviewText;
   document.getElementById('weather-preview').style.display = 'none';
 }
+async function previewMorning() {
+  await loadMorningStatus();
+  const box = document.getElementById('weather-preview');
+  box.style.display = 'block';
+  box.textContent = weatherPreviewText && ratePreviewText 
+    ? '🌅 Xayrli tong!\n\n' + weatherPreviewText.replace(/📢.*/s,'').trim() + '\n\n─────────────────────────\n\n' + ratePreviewText.replace(/📢.*/s,'').trim()
+    : 'Yuklanmoqda...';
+}
+
+async function sendMorning() {
+  const btn = document.getElementById('morning-btn');
+  const icon = document.getElementById('morning-icon');
+  const res = document.getElementById('morning-res');
+  btn.disabled = true; icon.innerHTML = '<span class="spin"></span>'; res.textContent = '⏳ Yuborilmoqda...';
+  const d = await apiFetch('/api/send-morning', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+  res.style.color = d?.ok ? '#3fb950' : '#f85149';
+  res.textContent = d?.ok ? '✅ Ertalab xabar yuborildi!' : '❌ '+(d?.error||'Xato');
+  icon.textContent = '🌅'; btn.disabled = false; loadStatus();
+}
+
 async function sendWeather() {
   const btn = document.getElementById('weather-btn');
   const icon = document.getElementById('weather-icon');

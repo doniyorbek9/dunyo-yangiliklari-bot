@@ -734,6 +734,36 @@ _(O'zbekiston Markaziy banki)_
 ${AD_TEXT}`;
 }
 
+
+async function runMorningCombined(customWeather = null, customRate = null) {
+  try {
+    addLog("info", "Ertalab ob-havo va kurs birgalikda yuborilmoqda...");
+    const [weatherText, rateText] = await Promise.all([
+      buildWeatherText(customWeather || morningSettings.weatherText),
+      buildRateText(customRate || morningSettings.rateText),
+    ]);
+    // Bitta xabarda birlashtirish
+    const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
+    const combined = `🌅 *Xayrli tong! — ${today}*
+
+` + weatherText.replace(/📢.*$/s, '').trim() + '
+
+' + '─'.repeat(25) + '
+
+' + rateText.replace(/📢.*$/s, '').trim() + AD_TEXT;
+    const result = await sendToTelegram(combined, null);
+    if (result.ok) {
+      addLog("ok", "Ertalab xabar birgalikda yuborildi ✓");
+      morningSettings.weatherText = null;
+      morningSettings.rateText = null;
+      return { ok: true, text: combined };
+    } else throw new Error(result.description);
+  } catch(e) {
+    addLog("err", "Ertalab xabar: " + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 async function runWeather(customText = null) {
   try {
     const text = await buildWeatherText(customText || morningSettings.weatherText);
@@ -774,6 +804,10 @@ app.get("/api/morning-status", authMiddleware, async (req, res) => {
   } catch(e) {
     res.json({ ok: false, error: e.message });
   }
+});
+
+app.post("/api/send-morning", authMiddleware, async (req, res) => {
+  res.json(await runMorningCombined());
 });
 
 app.post("/api/send-weather", authMiddleware, async (req, res) => {

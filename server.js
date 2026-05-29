@@ -238,20 +238,6 @@ const morningSettings = {
   rateText: null,
 };
 
-// morningSettings ni DB ga saqlash
-async function saveMorningSettings() {
-  await setSetting("morningWeatherHour", morningSettings.weatherHour);
-  await setSetting("morningRateHour",    morningSettings.rateHour);
-}
-
-// morningSettings ni DB dan yuklash
-async function loadMorningSettings() {
-  const wh = await getSetting("morningWeatherHour", 6);
-  const rh = await getSetting("morningRateHour",    6);
-  morningSettings.weatherHour = Number(wh);
-  morningSettings.rateHour    = Number(rh);
-}
-
 // AUTH
 const ADMIN = { login: "admin", password: "habar123" };
 const sessions = new Set();
@@ -420,22 +406,54 @@ async function fetchNewsAPI() {
   } catch(e) { addLog("warn", "NewsAPI: " + e.message); return []; }
 }
 
+// Manba navbatini DB da saqlash uchun kalit
+const SOURCE_INDEX_KEY = "sourceIndex";
+
 async function fetchAllNews() {
-  const promises = [];
-  if (settings.kunuz)    promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz"));
-  if (settings.daryo)    promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz"));
-  if (settings.xabarchi) promises.push(fetchRSS("https://xabarchi.com/feed", "Xabarchi.com"));
-  if (settings.gazeta)   promises.push(fetchRSS("https://www.gazeta.uz/uz/rss/", "Gazeta.uz"));
-  if (settings.xabar)    promises.push(fetchRSS("https://xabar.uz/feed", "Xabar.uz"));
-  if (settings.bbcuz)    promises.push(fetchRSS("https://feeds.bbci.co.uk/uzbek/rss.xml", "BBC O'zbek"));
-  if (settings.podrobno) promises.push(fetchRSS("https://podrobno.uz/rss/", "Podrobno.uz", "ru"));
-  if (settings.newsapi)  promises.push(fetchNewsAPI());
-  const results = await Promise.all(promises);
+  // Faol manbalar ro'yxatini tuzamiz
+  const activeSources = [];
+  if (settings.kunuz)    activeSources.push({ fn: () => fetchRSS("https://kun.uz/rss", "Kun.uz"), name: "Kun.uz" });
+  if (settings.daryo)    activeSources.push({ fn: () => fetchRSS("https://daryo.uz/feed", "Daryo.uz"), name: "Daryo.uz" });
+  if (settings.xabarchi) activeSources.push({ fn: () => fetchRSS("https://xabarchi.com/feed", "Xabarchi.com"), name: "Xabarchi.com" });
+  if (settings.gazeta)   activeSources.push({ fn: () => fetchRSS("https://www.gazeta.uz/uz/rss/", "Gazeta.uz"), name: "Gazeta.uz" });
+  if (settings.xabar)    activeSources.push({ fn: () => fetchRSS("https://xabar.uz/feed", "Xabar.uz"), name: "Xabar.uz" });
+  if (settings.bbcuz)    activeSources.push({ fn: () => fetchRSS("https://feeds.bbci.co.uk/uzbek/rss.xml", "BBC O'zbek"), name: "BBC O'zbek" });
+  if (settings.podrobno) activeSources.push({ fn: () => fetchRSS("https://podrobno.uz/rss/", "Podrobno.uz", "ru"), name: "Podrobno.uz" });
+  if (settings.newsapi)  activeSources.push({ fn: () => fetchNewsAPI(), name: "NewsAPI" });
+
+  if (activeSources.length === 0) throw new Error("Hech qanday manba yoqilmagan");
+
+  // Navbatdagi manba indeksini olamiz
+  let idx = await getState(SOURCE_INDEX_KEY, 0);
+  if (idx >= activeSources.length) idx = 0;
+
+  // Navbatdagi manbadan boshlab, topilguncha aylanamiz
+  let tried = 0;
+  while (tried < activeSources.length) {
+    const src = activeSources[idx % activeSources.length];
+    addLog("info", `Manba: ${src.name} (navbat ${(idx % activeSources.length) + 1}/${activeSources.length})`);
+    try {
+      const items = await src.fn();
+      if (items.length > 0) {
+        // Indeksni keyingiga o'tkazib saqlaymiz
+        await setState(SOURCE_INDEX_KEY, (idx + 1) % activeSources.length);
+        // Eng yangi yuborilmagan yangilikni qaytaramiz
+        return items[0];
+      }
+      addLog("warn", `${src.name}: yangi yangilik yo'q, keyingisiga o'tilmoqda...`);
+    } catch(e) {
+      addLog("warn", `${src.name} xato: ${e.message}`);
+    }
+    idx++;
+    tried++;
+  }
+
+  // Hamma manba bo'sh — barcha manbadan bitta tekshirib ko'ramiz
+  addLog("warn", "Navbat bo'sh, barcha manbadan qidirilmoqda...");
+  const results = await Promise.all(activeSources.map(s => s.fn().catch(() => [])));
   const all = results.flat();
   if (all.length === 0) throw new Error("Hech qaysi manbadan yangilik topilmadi");
-  const uzFirst = all.filter(n => ["Kun.uz","Daryo.uz","Xabarchi.com","Gazeta.uz","Xabar.uz","BBC O'zbek"].includes(n.source));
-  const pool2 = uzFirst.length > 0 ? uzFirst : all;
-  return pool2[Math.floor(Math.random() * Math.min(6, pool2.length))];
+  return all[Math.floor(Math.random() * all.length)];
 }
 
 // ════════════════════════════════════════════════════════
@@ -898,34 +916,15 @@ app.post("/api/send-poll", authMiddleware, async (req, res) => {
 function startMorningCrons() {
   if (weatherCronJob) weatherCronJob.stop();
   if (rateCronJob)    rateCronJob.stop();
-  weatherCronJob = null;
-  rateCronJob    = null;
-
-  // Agar ikki vaqt bir xil bo'lsa — bitta birlashtirilgan xabar yuboriladi
-  if (morningSettings.weatherHour === morningSettings.rateHour) {
-    weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, async () => {
-      const botPaused = await getState("botPaused", false);
-      if (botPaused) return;
-      addLog("info", `Ertalab xabar yuborilmoqda (${morningSettings.weatherHour}:00)...`);
-      runMorningCombined();
-    });
-    addLog("info", `Ertalab xabar (birlashtirilgan): ${morningSettings.weatherHour}:00`);
-  } else {
-    // Vaqtlar farq qilsa — alohida-alohida yuboriladi
-    weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, async () => {
-      const botPaused = await getState("botPaused", false);
-      if (botPaused) return;
-      addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
-      runWeather();
-    });
-    rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, async () => {
-      const botPaused = await getState("botPaused", false);
-      if (botPaused) return;
-      addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
-      runRate();
-    });
-    addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
-  }
+  weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, () => {
+    addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
+    runWeather();
+  });
+  rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, () => {
+    addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
+    runRate();
+  });
+  addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
 }
 
 async function fetchWeather() {
@@ -1084,13 +1083,12 @@ app.post("/api/send-rate",     authMiddleware, async (req, res) => {
   res.json(await runRate(customText || null));
 });
 
-app.post("/api/morning-settings", authMiddleware, async (req, res) => {
+app.post("/api/morning-settings", authMiddleware, (req, res) => {
   const { weatherHour, rateHour, weatherText, rateText } = req.body;
   if (weatherHour >= 4 && weatherHour <= 12) morningSettings.weatherHour = Number(weatherHour);
   if (rateHour    >= 4 && rateHour    <= 12) morningSettings.rateHour    = Number(rateHour);
   if (typeof weatherText === "string") morningSettings.weatherText = weatherText || null;
   if (typeof rateText    === "string") morningSettings.rateText    = rateText    || null;
-  await saveMorningSettings();
   startMorningCrons();
   addLog("info", `Ertalab sozlandi: ob-havo ${morningSettings.weatherHour}:00, kurs ${morningSettings.rateHour}:00`);
   res.json({ ok: true, morningSettings });
@@ -1128,10 +1126,6 @@ async function main() {
     // Sozlamalarni DB dan yuklang
     settings = await loadAllSettings();
     addLog("info", `Sozlamalar DB dan yuklandi: interval=${settings.interval}s, digest=${settings.digestHour}:00`);
-
-    // Ertalab sozlamalarini DB dan yuklang
-    await loadMorningSettings();
-    addLog("info", `Ertalab sozlamalar yuklandi: ob-havo=${morningSettings.weatherHour}:00, kurs=${morningSettings.rateHour}:00`);
 
     const sentCount = await getSentTitlesCount();
     addLog("info", `Eslab qolingan sarlavhalar: ${sentCount} ta`);

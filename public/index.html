@@ -584,6 +584,14 @@ input::placeholder, textarea::placeholder { color: var(--text-d); }
         <span class="sb-link-icon">📊</span> Poll yuborish
       </a>
 
+      <div class="sb-nav-label">Ertalab</div>
+      <a class="sb-link" href="#weather-section" onclick="scrollTo('weather-section')">
+        <span class="sb-link-icon">☀️</span> Ob-havo
+      </a>
+      <a class="sb-link" href="#rate-section" onclick="scrollTo('rate-section')">
+        <span class="sb-link-icon">💵</span> Valyuta kursi
+      </a>
+
       <div class="sb-nav-label">Sozlamalar</div>
       <a class="sb-link" href="#schedule" onclick="scrollTo('schedule')">
         <span class="sb-link-icon">⏰</span> Jadval
@@ -693,37 +701,111 @@ input::placeholder, textarea::placeholder { color: var(--text-d); }
           <div class="digest-box" id="digest-result"></div>
         </div>
 
-        <!-- Morning -->
+        <!-- Weather Card -->
+        <div class="card" id="weather-section">
+          <div class="card-head">
+            <div class="card-title">
+              <div class="card-title-icon">☀️</div>
+              Ob-havo (Toshkent)
+            </div>
+          </div>
+
+          <!-- Live stats pills -->
+          <div class="morning-stats" id="weather-stats-row" style="margin-bottom:14px"></div>
+
+          <!-- Preview box -->
+          <div class="weather-preview" id="weather-preview-box" style="margin-bottom:12px"></div>
+
+          <!-- Schedule row -->
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--text-d);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">⏰ Yuborish vaqti</div>
+            <div class="sched-row" style="margin-bottom:0">
+              <label>Har kuni soat:</label>
+              <select id="sel-weather-hour2" onchange="liveUpdateWeatherTime()">
+                <option value="4">04:00</option>
+                <option value="5">05:00</option>
+                <option value="6" selected>06:00</option>
+                <option value="7">07:00</option>
+                <option value="8">08:00</option>
+                <option value="9">09:00</option>
+                <option value="10">10:00</option>
+                <option value="11">11:00</option>
+                <option value="12">12:00</option>
+              </select>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-d);margin-top:6px" id="weather-time-label">Har kuni soat 06:00 da avtomatik yuboriladi</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <button class="btn btn-ghost" onclick="previewWeatherOnly()">👁 Ko'rish</button>
+            <button class="btn btn-accent" id="weather-send-btn" onclick="sendWeatherNow()">
+              <span id="weather-send-icon">☀️</span> Hozir yuborish
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-full" onclick="saveWeatherTime()">💾 Vaqtni saqlash</button>
+          <div class="save-ok" id="weather-save-ok">✅ Saqlandi!</div>
+          <div id="weather-res" class="msg-res" style="margin-top:6px"></div>
+        </div>
+
+        <!-- Rates Card -->
+        <div class="card" id="rate-section">
+          <div class="card-head">
+            <div class="card-title">
+              <div class="card-title-icon">💵</div>
+              Valyuta kursi (CBU)
+            </div>
+          </div>
+
+          <!-- Live rate pills -->
+          <div class="morning-stats" id="rate-stats-row" style="margin-bottom:14px"></div>
+
+          <!-- Preview box -->
+          <div class="weather-preview" id="rate-preview-box" style="margin-bottom:12px"></div>
+
+          <!-- Schedule row -->
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--text-d);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">⏰ Yuborish vaqti</div>
+            <div class="sched-row" style="margin-bottom:0">
+              <label>Har kuni soat:</label>
+              <select id="sel-rate-hour" onchange="liveUpdateRateTime()">
+                <option value="4">04:00</option>
+                <option value="5">05:00</option>
+                <option value="6" selected>06:00</option>
+                <option value="7">07:00</option>
+                <option value="8">08:00</option>
+                <option value="9">09:00</option>
+                <option value="10">10:00</option>
+                <option value="11">11:00</option>
+                <option value="12">12:00</option>
+              </select>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-d);margin-top:6px" id="rate-time-label">Har kuni soat 06:00 da avtomatik yuboriladi</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <button class="btn btn-ghost" onclick="previewRateOnly()">👁 Ko'rish</button>
+            <button class="btn btn-accent" id="rate-send-btn" onclick="sendRateNow()">
+              <span id="rate-send-icon">💵</span> Hozir yuborish
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-full" onclick="saveRateTime()">💾 Vaqtni saqlash</button>
+          <div class="save-ok" id="rate-save-ok">✅ Saqlandi!</div>
+          <div id="rate-res" class="msg-res" style="margin-top:6px"></div>
+        </div>
+
+        <!-- Combined Morning Card -->
         <div class="card" id="morning">
           <div class="card-head">
             <div class="card-title">
               <div class="card-title-icon">🌅</div>
-              Ertalab xabari
+              Ertalab ikkisini birgalikda
             </div>
           </div>
-          <div class="morning-stats">
-            <div id="weather-stats"></div>
-            <div id="rate-stats"></div>
-          </div>
-          <div class="sched-row">
-            <label>Yuborish vaqti:</label>
-            <select id="sel-weather-hour">
-              <option value="4">04:00</option><option value="5">05:00</option>
-              <option value="6" selected>06:00</option><option value="7">07:00</option>
-              <option value="8">08:00</option><option value="9">09:00</option><option value="10">10:00</option>
-            </select>
-          </div>
-          <div class="weather-preview" id="weather-preview"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm" onclick="previewMorning()">👁 Ko'rish</button>
-            <button class="btn btn-green btn-sm" id="morning-btn" onclick="sendMorning()">
-              <span id="morning-icon">🌅</span> Hozir yuborish
-            </button>
-          </div>
+          <p class="text-muted" style="margin-bottom:12px">Ob-havo + valyuta kursi bitta xabarda yuboriladi.</p>
+          <button class="btn btn-accent btn-full" id="morning-btn" onclick="sendMorning()">
+            <span id="morning-icon">🌅</span> Hozir yuborish
+          </button>
           <div id="morning-res" class="msg-res" style="color:var(--text-m)"></div>
-          <div class="divider"></div>
-          <button class="btn btn-ghost btn-full" onclick="saveMorningSettings()">💾 Vaqtni saqlash</button>
-          <div class="save-ok" id="morning-save-ok">✅ Saqlandi!</div>
         </div>
 
         <!-- Custom Text -->
@@ -1102,41 +1184,140 @@ async function saveSchedule() {
   loadStatus();
 }
 
-// MORNING
+// MORNING / WEATHER / RATE
 async function loadMorningStatus() {
   const d = await apiFetch('/api/morning-status');
   if (!d || !d.ok) return;
+
+  // Weather pills
   if (d.weather) {
-    document.getElementById('weather-stats').innerHTML =
-      `<span class="morning-stat">🌡 ${d.weather.temp}°C</span>
+    const temp = d.weather.temp;
+    const emoji = temp >= 35 ? '🥵' : temp >= 25 ? '☀️' : temp >= 15 ? '⛅' : temp >= 5 ? '🌥️' : '❄️';
+    document.getElementById('weather-stats-row').innerHTML =
+      `<span class="morning-stat">${emoji} ${d.weather.temp}°C</span>
        <span class="morning-stat">💧 ${d.weather.humidity}%</span>
-       <span class="morning-stat">💨 ${d.weather.wind} km/s</span>`;
+       <span class="morning-stat">💨 ${d.weather.wind} km/s</span>
+       <span class="morning-stat">🌤 ${d.weather.desc}</span>`;
   }
+
+  // Rate pills
   if (d.rate) {
     const usd = Number(d.rate.usd).toLocaleString('uz-UZ');
     const eur = Number(d.rate.eur).toLocaleString('uz-UZ');
-    document.getElementById('rate-stats').innerHTML =
+    const rub = (Number(d.rate.rub) * 100).toFixed(0);
+    document.getElementById('rate-stats-row').innerHTML =
       `<span class="morning-stat">🇺🇸 ${usd} so'm</span>
-       <span class="morning-stat">🇪🇺 ${eur} so'm</span>`;
+       <span class="morning-stat">🇪🇺 ${eur} so'm</span>
+       <span class="morning-stat">🇷🇺 100 RUB = ${rub} so'm</span>`;
   }
+
+  // Store previews
   if (d.weatherPreview) weatherPreviewText = d.weatherPreview;
   if (d.ratePreview)    ratePreviewText    = d.ratePreview;
+
+  // Set saved times
   if (d.morningSettings) {
-    const wh = document.getElementById('sel-weather-hour');
-    if (wh) wh.value = d.morningSettings.weatherHour || 6;
+    const wh = document.getElementById('sel-weather-hour2');
+    const rh = document.getElementById('sel-rate-hour');
+    if (wh) { wh.value = d.morningSettings.weatherHour || 6; liveUpdateWeatherTime(); }
+    if (rh) { rh.value = d.morningSettings.rateHour    || 6; liveUpdateRateTime(); }
   }
+}
+
+function liveUpdateWeatherTime() {
+  const v = document.getElementById('sel-weather-hour2').value;
+  document.getElementById('weather-time-label').textContent =
+    `Har kuni soat ${String(v).padStart(2,'0')}:00 da avtomatik yuboriladi`;
+}
+
+function liveUpdateRateTime() {
+  const v = document.getElementById('sel-rate-hour').value;
+  document.getElementById('rate-time-label').textContent =
+    `Har kuni soat ${String(v).padStart(2,'0')}:00 da avtomatik yuboriladi`;
+}
+
+async function previewWeatherOnly() {
+  const box = document.getElementById('weather-preview-box');
+  box.style.display = 'block';
+  box.textContent = '⏳ Yuklanmoqda...';
+  await loadMorningStatus();
+  box.textContent = weatherPreviewText
+    ? weatherPreviewText.replace(/📢.*/s, '').trim()
+    : 'Ma\'lumot olinmadi';
+}
+
+async function previewRateOnly() {
+  const box = document.getElementById('rate-preview-box');
+  box.style.display = 'block';
+  box.textContent = '⏳ Yuklanmoqda...';
+  await loadMorningStatus();
+  box.textContent = ratePreviewText
+    ? ratePreviewText.replace(/📢.*/s, '').trim()
+    : 'Ma\'lumot olinmadi';
+}
+
+async function sendWeatherNow() {
+  const btn  = document.getElementById('weather-send-btn');
+  const icon = document.getElementById('weather-send-icon');
+  const res  = document.getElementById('weather-res');
+  btn.disabled = true; icon.innerHTML = '<span class="spin"></span>';
+  res.textContent = '⏳ Yuborilmoqda...'; res.style.color = 'var(--text-m)';
+  const d = await apiFetch('/api/send-weather', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
+  });
+  res.style.color = d?.ok ? 'var(--green)' : 'var(--red)';
+  res.textContent = d?.ok ? '✅ Ob-havo yuborildi!' : '❌ ' + (d?.error || 'Xato');
+  icon.textContent = '☀️'; btn.disabled = false; loadStatus();
+}
+
+async function sendRateNow() {
+  const btn  = document.getElementById('rate-send-btn');
+  const icon = document.getElementById('rate-send-icon');
+  const res  = document.getElementById('rate-res');
+  btn.disabled = true; icon.innerHTML = '<span class="spin"></span>';
+  res.textContent = '⏳ Yuborilmoqda...'; res.style.color = 'var(--text-m)';
+  const d = await apiFetch('/api/send-rate', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
+  });
+  res.style.color = d?.ok ? 'var(--green)' : 'var(--red)';
+  res.textContent = d?.ok ? '✅ Valyuta kursi yuborildi!' : '❌ ' + (d?.error || 'Xato');
+  icon.textContent = '💵'; btn.disabled = false; loadStatus();
+}
+
+async function saveWeatherTime() {
+  const weatherHour = document.getElementById('sel-weather-hour2').value;
+  await apiFetch('/api/morning-settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ weatherHour: Number(weatherHour) })
+  });
+  const ok = document.getElementById('weather-save-ok');
+  ok.style.display = 'block';
+  setTimeout(() => ok.style.display = 'none', 2000);
+}
+
+async function saveRateTime() {
+  const rateHour = document.getElementById('sel-rate-hour').value;
+  await apiFetch('/api/morning-settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ rateHour: Number(rateHour) })
+  });
+  const ok = document.getElementById('rate-save-ok');
+  ok.style.display = 'block';
+  setTimeout(() => ok.style.display = 'none', 2000);
 }
 
 async function previewMorning() {
   await loadMorningStatus();
   const box = document.getElementById('weather-preview');
-  box.style.display = 'block';
-  box.textContent = weatherPreviewText && ratePreviewText
-    ? '🌅 Xayrli tong!\n\n' +
-      weatherPreviewText.replace(/📢.*/s,'').trim() +
-      '\n\n─────────────────────────\n\n' +
-      ratePreviewText.replace(/📢.*/s,'').trim()
-    : 'Yuklanmoqda...';
+  if (box) {
+    box.style.display = 'block';
+    box.textContent = weatherPreviewText && ratePreviewText
+      ? '🌅 Xayrli tong!\n\n' +
+        weatherPreviewText.replace(/📢.*/s,'').trim() +
+        '\n\n─────────────────────────\n\n' +
+        ratePreviewText.replace(/📢.*/s,'').trim()
+      : 'Yuklanmoqda...';
+  }
 }
 
 async function sendMorning() {
@@ -1154,14 +1335,13 @@ async function sendMorning() {
 }
 
 async function saveMorningSettings() {
-  const weatherHour = document.getElementById('sel-weather-hour').value;
+  const weatherHour = document.getElementById('sel-weather-hour2')?.value || 6;
   await apiFetch('/api/morning-settings', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({weatherHour:Number(weatherHour)})
   });
   const ok = document.getElementById('morning-save-ok');
-  ok.style.display='block';
-  setTimeout(()=>ok.style.display='none', 2000);
+  if (ok) { ok.style.display='block'; setTimeout(()=>ok.style.display='none', 2000); }
 }
 
 // Auto-refresh

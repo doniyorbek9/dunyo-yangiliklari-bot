@@ -238,6 +238,20 @@ const morningSettings = {
   rateText: null,
 };
 
+// morningSettings ni DB ga saqlash
+async function saveMorningSettings() {
+  await setSetting("morningWeatherHour", morningSettings.weatherHour);
+  await setSetting("morningRateHour",    morningSettings.rateHour);
+}
+
+// morningSettings ni DB dan yuklash
+async function loadMorningSettings() {
+  const wh = await getSetting("morningWeatherHour", 6);
+  const rh = await getSetting("morningRateHour",    6);
+  morningSettings.weatherHour = Number(wh);
+  morningSettings.rateHour    = Number(rh);
+}
+
 // AUTH
 const ADMIN = { login: "admin", password: "habar123" };
 const sessions = new Set();
@@ -884,15 +898,34 @@ app.post("/api/send-poll", authMiddleware, async (req, res) => {
 function startMorningCrons() {
   if (weatherCronJob) weatherCronJob.stop();
   if (rateCronJob)    rateCronJob.stop();
-  weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, () => {
-    addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
-    runWeather();
-  });
-  rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, () => {
-    addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
-    runRate();
-  });
-  addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
+  weatherCronJob = null;
+  rateCronJob    = null;
+
+  // Agar ikki vaqt bir xil bo'lsa — bitta birlashtirilgan xabar yuboriladi
+  if (morningSettings.weatherHour === morningSettings.rateHour) {
+    weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, async () => {
+      const botPaused = await getState("botPaused", false);
+      if (botPaused) return;
+      addLog("info", `Ertalab xabar yuborilmoqda (${morningSettings.weatherHour}:00)...`);
+      runMorningCombined();
+    });
+    addLog("info", `Ertalab xabar (birlashtirilgan): ${morningSettings.weatherHour}:00`);
+  } else {
+    // Vaqtlar farq qilsa — alohida-alohida yuboriladi
+    weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, async () => {
+      const botPaused = await getState("botPaused", false);
+      if (botPaused) return;
+      addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
+      runWeather();
+    });
+    rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, async () => {
+      const botPaused = await getState("botPaused", false);
+      if (botPaused) return;
+      addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
+      runRate();
+    });
+    addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
+  }
 }
 
 async function fetchWeather() {
@@ -1051,12 +1084,13 @@ app.post("/api/send-rate",     authMiddleware, async (req, res) => {
   res.json(await runRate(customText || null));
 });
 
-app.post("/api/morning-settings", authMiddleware, (req, res) => {
+app.post("/api/morning-settings", authMiddleware, async (req, res) => {
   const { weatherHour, rateHour, weatherText, rateText } = req.body;
   if (weatherHour >= 4 && weatherHour <= 12) morningSettings.weatherHour = Number(weatherHour);
   if (rateHour    >= 4 && rateHour    <= 12) morningSettings.rateHour    = Number(rateHour);
   if (typeof weatherText === "string") morningSettings.weatherText = weatherText || null;
   if (typeof rateText    === "string") morningSettings.rateText    = rateText    || null;
+  await saveMorningSettings();
   startMorningCrons();
   addLog("info", `Ertalab sozlandi: ob-havo ${morningSettings.weatherHour}:00, kurs ${morningSettings.rateHour}:00`);
   res.json({ ok: true, morningSettings });
@@ -1094,6 +1128,10 @@ async function main() {
     // Sozlamalarni DB dan yuklang
     settings = await loadAllSettings();
     addLog("info", `Sozlamalar DB dan yuklandi: interval=${settings.interval}s, digest=${settings.digestHour}:00`);
+
+    // Ertalab sozlamalarini DB dan yuklang
+    await loadMorningSettings();
+    addLog("info", `Ertalab sozlamalar yuklandi: ob-havo=${morningSettings.weatherHour}:00, kurs=${morningSettings.rateHour}:00`);
 
     const sentCount = await getSentTitlesCount();
     addLog("info", `Eslab qolingan sarlavhalar: ${sentCount} ta`);

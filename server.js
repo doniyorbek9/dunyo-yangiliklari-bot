@@ -4,7 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const _fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 
-// node-fetch v3 timeout wrapper (AbortController bilan)
+// node-fetch v3 timeout wrapper
 async function fetch(url, options = {}) {
   const { timeout = 10000, ...rest } = options;
   const controller = new AbortController();
@@ -22,12 +22,43 @@ const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHANNEL_ID = process.env.CHANNEL_ID;
-const GROQ_KEY = process.env.GROQ_KEY;
+const BOT_TOKEN   = process.env.BOT_TOKEN;
+const CHANNEL_ID  = process.env.CHANNEL_ID;
+const GROQ_KEY    = process.env.GROQ_KEY;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const CHANNEL_LINK = "https://t.me/global\\_xabar\\_uz";
 const AD_TEXT = `\n\n📢 Obuna bo'ling: ${CHANNEL_LINK}`;
+
+// ════════════════════════════════════════════════════════
+// PERSISTENT SENT TITLES — server restart da ham eslab qoladi
+// ════════════════════════════════════════════════════════
+const SENT_TITLES_FILE = path.join(__dirname, "sent_titles.json");
+
+function loadSentTitles() {
+  try {
+    if (fs.existsSync(SENT_TITLES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SENT_TITLES_FILE, "utf8"));
+      if (Array.isArray(data)) {
+        // Faqat so'nggi 1000 ta saqlash
+        return new Set(data.slice(-1000));
+      }
+    }
+  } catch (e) {
+    console.log("[WARN] sentTitles yuklashda xato:", e.message);
+  }
+  return new Set();
+}
+
+function saveSentTitles() {
+  try {
+    const arr = Array.from(sentTitles);
+    // Faqat so'nggi 1000 ta saqlash
+    const trimmed = arr.slice(-1000);
+    fs.writeFileSync(SENT_TITLES_FILE, JSON.stringify(trimmed), "utf8");
+  } catch (e) {
+    console.log("[WARN] sentTitles saqlashda xato:", e.message);
+  }
+}
 
 let sentToday = 0;
 let lastSent = null;
@@ -35,7 +66,8 @@ let isRunning = false;
 let botPaused = false;
 let startFromTomorrow = false;
 const logs = [];
-const sentTitles = new Set();
+// ▶ Diskdan yuklash
+const sentTitles = loadSentTitles();
 const dailyNews = [];
 
 const settings = {
@@ -115,7 +147,7 @@ function startCronJobs() {
   addLog("info", `Jadval: har ${settings.interval}s | Digest: ${settings.digestHour}:00`);
 }
 
-// "Ertadan boshlab" - yarim tunda yoqiladi
+// Yarim tunda hisoblar nollandi
 cron.schedule("0 0 * * *", () => {
   sentToday = 0;
   dailyNews.length = 0;
@@ -130,21 +162,20 @@ cron.schedule("0 0 * * *", () => {
 function isGoodImageUrl(url) {
   if (!url) return false;
   const lower = url.toLowerCase();
-  // Sifatsiz rasmlarni filter qilish
   const badPatterns = [
-    "maps.google", "maps.gstatic", "staticmap", "maps?",    // Google Maps
-    "avatar", "profile", "icon", "logo", "favicon",          // Icon/logo
-    "banner", "ads", "advert", "pixel", "track",             // Reklama
-    "1x1", "placeholder", "blank", "spacer",                 // Bo'sh rasmlar
-    ".gif",                                                    // GIF animatsiya
-    "gravatar", "disqus",                                     // Foydalanuvchi avatarlari
+    "maps.google", "maps.gstatic", "staticmap", "maps?",
+    "avatar", "profile", "icon", "logo", "favicon",
+    "banner", "ads", "advert", "pixel", "track",
+    "1x1", "placeholder", "blank", "spacer",
+    ".gif",
+    "gravatar", "disqus",
   ];
   if (badPatterns.some(p => lower.includes(p))) return false;
-  // Faqat rasm kengaytmalari
   const goodExt = [".jpg", ".jpeg", ".png", ".webp"];
-  // URL kengaytmasi yo'q bo'lsa ham qabul qilish (ko'pchilik CDN URL)
   const hasExt = goodExt.some(e => lower.includes(e));
-  const hasCDN = lower.includes("cdn") || lower.includes("image") || lower.includes("photo") || lower.includes("media") || lower.includes("upload") || lower.includes("news");
+  const hasCDN = lower.includes("cdn") || lower.includes("image") ||
+                 lower.includes("photo") || lower.includes("media") ||
+                 lower.includes("upload") || lower.includes("news");
   return hasExt || hasCDN;
 }
 
@@ -155,11 +186,11 @@ async function fetchRSS(url, sourceName, lang = "uz") {
     const items = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
     return items.slice(0, 15).map(item => {
       const title = (item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || item.match(/<title>(.*?)<\/title>/))?.[1]?.trim() || "";
-      const desc = (item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) || item.match(/<description>(.*?)<\/description>/))?.[1] || "";
-      const link = item.match(/<link>(.*?)<\/link>/)?.[1]?.trim() || "";
-      const img = item.match(/<enclosure[^>]+url="([^"]+)"/)?.[1] ||
-                  item.match(/<media:content[^>]+url="([^"]+)"/)?.[1] ||
-                  item.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] || null;
+      const desc  = (item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) || item.match(/<description>(.*?)<\/description>/))?.[1] || "";
+      const link  = item.match(/<link>(.*?)<\/link>/)?.[1]?.trim() || "";
+      const img   = item.match(/<enclosure[^>]+url="([^"]+)"/)?.[1] ||
+                    item.match(/<media:content[^>]+url="([^"]+)"/)?.[1] ||
+                    item.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] || null;
       const filteredImg = isGoodImageUrl(img) ? img : null;
       return {
         title, description: desc.replace(/<[^>]+>/g, "").trim().slice(0, 300),
@@ -191,14 +222,14 @@ async function fetchNewsAPI() {
 
 async function fetchAllNews() {
   const promises = [];
-  if (settings.kunuz) promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz"));
-  if (settings.daryo) promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz"));
+  if (settings.kunuz)    promises.push(fetchRSS("https://kun.uz/rss", "Kun.uz"));
+  if (settings.daryo)    promises.push(fetchRSS("https://daryo.uz/feed", "Daryo.uz"));
   if (settings.xabarchi) promises.push(fetchRSS("https://xabarchi.com/feed", "Xabarchi.com"));
-  if (settings.gazeta) promises.push(fetchRSS("https://www.gazeta.uz/uz/rss/", "Gazeta.uz"));
-  if (settings.xabar) promises.push(fetchRSS("https://xabar.uz/feed", "Xabar.uz"));
-  if (settings.bbcuz) promises.push(fetchRSS("https://feeds.bbci.co.uk/uzbek/rss.xml", "BBC O'zbek"));
+  if (settings.gazeta)   promises.push(fetchRSS("https://www.gazeta.uz/uz/rss/", "Gazeta.uz"));
+  if (settings.xabar)    promises.push(fetchRSS("https://xabar.uz/feed", "Xabar.uz"));
+  if (settings.bbcuz)    promises.push(fetchRSS("https://feeds.bbci.co.uk/uzbek/rss.xml", "BBC O'zbek"));
   if (settings.podrobno) promises.push(fetchRSS("https://podrobno.uz/rss/", "Podrobno.uz", "ru"));
-  if (settings.newsapi) promises.push(fetchNewsAPI());
+  if (settings.newsapi)  promises.push(fetchNewsAPI());
   const results = await Promise.all(promises);
   const all = results.flat();
   if (all.length === 0) throw new Error("Hech qaysi manbadan yangilik topilmadi");
@@ -234,13 +265,11 @@ function cleanText(text) {
 async function translateWithGroq(news) {
   const isUz = ["Kun.uz","Daryo.uz","Xabarchi.com","Gazeta.uz","Xabar.uz","BBC O'zbek"].includes(news.source);
   const isRu = news.lang === "ru";
-
   const cleanTitle = cleanText(news.title);
-  const cleanDesc = cleanText(news.description);
-
-  const langInstruction = isUz 
+  const cleanDesc  = cleanText(news.description);
+  const langInstruction = isUz
     ? "Bu yangilik o'zbek tilida. Aynan o'zbek tilida yoz, ruscha so'z ishlatma."
-    : isRu 
+    : isRu
     ? "Bu yangilik ruscha. O'ZBEK tiliga to'liq tarjima qil, birorta ruscha so'z qoldirma."
     : "Bu yangilik inglizcha. O'ZBEK tiliga to'liq tarjima qil, birorta inglizcha so'z qoldirma.";
 
@@ -272,18 +301,6 @@ FAQAT JSON qaytar, boshqa hech narsa yozma:
   return result;
 }
 
-
-
-async function getImage(query) {
-  try {
-    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=YOUR_UNSPLASH_KEY`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.results && data.results.length > 0) return data.results[0].urls.regular;
-    return null;
-  } catch(e) { return null; }
-}
-
 async function getSubscriberCount() {
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMembersCount?chat_id=${CHANNEL_ID}`);
@@ -292,36 +309,56 @@ async function getSubscriberCount() {
   } catch(e) { return null; }
 }
 
-async function addWatermark(imageUrl) {
+// ════════════════════════════════════════════════════════
+// WATERMARK — rasmga kanal logosi qo'yadi
+// HAMMA RASMDA LOGO BO'LADI: bir marta hisoblaydi,
+// barcha fallback larda shu watermarked bufferni ishlatadi
+// ════════════════════════════════════════════════════════
+async function addWatermark(imageUrlOrBuffer) {
   try {
     const logoPath = path.join(__dirname, "public", "logo.png");
-    if (!fs.existsSync(logoPath)) return null;
+    if (!fs.existsSync(logoPath)) {
+      addLog("warn", "logo.png topilmadi!");
+      return null;
+    }
 
-    // Download image
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return null;
-    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+    // imageUrlOrBuffer — URL yoki Buffer bo'lishi mumkin
+    let imgBuffer;
+    if (Buffer.isBuffer(imageUrlOrBuffer)) {
+      imgBuffer = imageUrlOrBuffer;
+    } else {
+      const imgRes = await fetch(imageUrlOrBuffer, {
+        timeout: 12000,
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)" }
+      });
+      if (!imgRes.ok) {
+        addLog("warn", `Rasm yuklanmadi: HTTP ${imgRes.status}`);
+        return null;
+      }
+      imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+    }
 
     const [image, logo] = await Promise.all([
       Jimp.read(imgBuffer),
       Jimp.read(logoPath),
     ]);
 
-    // Resize logo — pastki o'ng burchak uchun kichikroq
+    // Logo o'lchami: rasm kengligining 22%
     const logoSize = Math.round(image.getWidth() * 0.22);
     logo.resize(logoSize, Jimp.AUTO);
 
-    // Pastki o'ng burchakka joylashtirish
-    const x = image.getWidth() - logo.getWidth() - 12;
-    const y = image.getHeight() - logo.getHeight() - 12;
+    // Pastki o'ng burchak
+    const x = image.getWidth()  - logo.getWidth()  - 14;
+    const y = image.getHeight() - logo.getHeight() - 14;
 
     image.composite(logo, x, y, {
       mode: Jimp.BLEND_SOURCE_OVER,
-      opacitySource: 0.85,
+      opacitySource: 0.88,
       opacityDest: 1,
     });
 
     const resultBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
+    addLog("info", "Watermark muvaffaqiyatli qo'yildi ✓");
     return resultBuffer;
   } catch(e) {
     addLog("warn", "Watermark xato: " + e.message);
@@ -329,17 +366,44 @@ async function addWatermark(imageUrl) {
   }
 }
 
+// ════════════════════════════════════════════════════════
+// TELEGRAM YUBORISH
+// Watermark bir marta hisoblanadi, barcha urinishlarda ishlatiladi
+// ════════════════════════════════════════════════════════
 async function sendToTelegram(text, imageUrl) {
   if (imageUrl) {
-    try {
-      // Avval rasmni yuklab olishga harakat qilamiz
-      const watermarked = await addWatermark(imageUrl);
 
-      if (watermarked) {
-        // FormData ishlatmasdan to'g'ri multipart qurish
+    // ─── Watermarked buffer olish (BIR MARTA) ───────────────
+    addLog("info", "Rasmga watermark qo'yilmoqda...");
+    const watermarkedBuffer = await addWatermark(imageUrl);
+
+    if (!watermarkedBuffer) {
+      addLog("warn", "Watermark ishlamadi, logosiz yuborishga harakat...");
+    }
+
+    // Yuborish uchun buffer: watermarked yoki original
+    let sendBuffer = watermarkedBuffer;
+    if (!sendBuffer) {
+      // Original rasmni yuklab olib yuborish
+      try {
+        const imgRes = await fetch(imageUrl, {
+          timeout: 12000,
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)" }
+        });
+        if (imgRes.ok) {
+          sendBuffer = Buffer.from(await imgRes.arrayBuffer());
+          addLog("info", "Original rasm buffer sifatida yuklandi");
+        }
+      } catch(e) {
+        addLog("warn", "Rasmni yuklash xato: " + e.message);
+      }
+    }
+
+    // ─── Urinish 1: buffer (watermarked yoki original) ──────
+    if (sendBuffer) {
+      try {
         const boundary = "----TGBoundary" + Date.now().toString(36);
         const CRLF = "\r\n";
-
         const parts = [];
         const addField = (name, value) => {
           parts.push(
@@ -348,9 +412,8 @@ async function sendToTelegram(text, imageUrl) {
             value, CRLF
           );
         };
-
-        addField("chat_id", String(CHANNEL_ID));
-        addField("caption", text);
+        addField("chat_id",    String(CHANNEL_ID));
+        addField("caption",    text);
         addField("parse_mode", "Markdown");
 
         const photoHeader = Buffer.from(
@@ -359,73 +422,38 @@ async function sendToTelegram(text, imageUrl) {
           `Content-Type: image/jpeg${CRLF}${CRLF}`
         );
         const photoFooter = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
-
-        const textParts = Buffer.from(parts.join(""));
-        const body = Buffer.concat([textParts, photoHeader, watermarked, photoFooter]);
+        const textParts   = Buffer.from(parts.join(""));
+        const body        = Buffer.concat([textParts, photoHeader, sendBuffer, photoFooter]);
 
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-          method: "POST",
+          method:  "POST",
           headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
-          body,
-          timeout: 20000,
+          body, timeout: 25000,
         });
         const d = await res.json();
         if (d.ok) {
-          addLog("info", "Rasm watermark bilan yuborildi ✓");
-          return d;
-        }
-        addLog("warn", "Watermark yuborishda Telegram xato: " + JSON.stringify(d));
-      }
-    } catch(e) {
-      addLog("warn", "Watermark jarayonida xato: " + e.message);
-    }
-
-    // Fallback 1: rasmni buffer sifatida yuklab, watermarksiz yuborish
-    try {
-      const imgRes = await fetch(imageUrl, {
-        timeout: 10000,
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; TelegramBot)" }
-      });
-      if (imgRes.ok) {
-        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-        const boundary = "----TGFallback" + Date.now().toString(36);
-        const CRLF = "\r\n";
-        const textPart = Buffer.from(
-          `--${boundary}${CRLF}Content-Disposition: form-data; name="chat_id"${CRLF}${CRLF}${CHANNEL_ID}${CRLF}` +
-          `--${boundary}${CRLF}Content-Disposition: form-data; name="caption"${CRLF}${CRLF}${text}${CRLF}` +
-          `--${boundary}${CRLF}Content-Disposition: form-data; name="parse_mode"${CRLF}${CRLF}Markdown${CRLF}` +
-          `--${boundary}${CRLF}Content-Disposition: form-data; name="photo"; filename="news.jpg"${CRLF}Content-Type: image/jpeg${CRLF}${CRLF}`
-        );
-        const footer = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
-        const body = Buffer.concat([textPart, imgBuffer, footer]);
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-          method: "POST",
-          headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
-          body,
-          timeout: 20000,
-        });
-        const d = await res.json();
-        if (d.ok) {
-          addLog("info", "Rasm buffer bilan yuborildi ✓");
+          const logoStatus = watermarkedBuffer ? "logo bilan" : "logosiz";
+          addLog("info", `Rasm buffer (${logoStatus}) yuborildi ✓`);
           return d;
         }
         addLog("warn", "Buffer yuborishda Telegram xato: " + JSON.stringify(d));
+      } catch(e) {
+        addLog("warn", "Buffer yuborishda xato: " + e.message);
       }
-    } catch(e) {
-      addLog("warn", "Rasmni yuklashda xato: " + e.message);
     }
 
-    // Fallback 2: URL to'g'ridan-to'g'ri Telegramga berish
+    // ─── Urinish 2: URL to'g'ridan-to'g'ri ─────────────────
+    // (watermark imkonsiz bo'lganda URL bilan urinib ko'rish)
     try {
       const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
+        body:    JSON.stringify({ chat_id: CHANNEL_ID, photo: imageUrl, caption: text, parse_mode: "Markdown" }),
         timeout: 15000,
       });
       const d = await res.json();
       if (d.ok) {
-        addLog("info", "Rasm URL bilan yuborildi ✓");
+        addLog("info", "Rasm URL bilan yuborildi (logosiz) ✓");
         return d;
       }
       addLog("warn", "URL yuborishda Telegram xato: " + JSON.stringify(d));
@@ -433,16 +461,16 @@ async function sendToTelegram(text, imageUrl) {
       addLog("warn", "URL fallback xato: " + e.message);
     }
 
-    // Fallback 3: rasmsiz matn yuborish
-    addLog("warn", "Rasm yuklanmadi, rasmsiz yuborilmoqda...");
+    // ─── Urinish 3: rasmsiz matn ────────────────────────────
+    addLog("warn", "Rasm yuborib bo'lmadi, rasmsiz yuborilmoqda...");
     return sendToTelegram(text, null);
   }
 
   // Rasmsiz yuborish
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
+    method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
+    body:    JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: "Markdown" }),
     timeout: 15000,
   });
   return res.json();
@@ -450,19 +478,21 @@ async function sendToTelegram(text, imageUrl) {
 
 async function runCycle() {
   if (isRunning) return { ok: false, error: "Jarayon band" };
-  if (botPaused) return { ok: false, error: "Bot to'xtatilgan" };
+  if (botPaused)  return { ok: false, error: "Bot to'xtatilgan" };
   isRunning = true;
   try {
     addLog("info", "Yangilik qidirilmoqda...");
     const news = await fetchAllNews();
     addLog("info", `[${news.source}] ${news.title.slice(0, 55)}`);
     const translated = await translateWithGroq(news);
-    const hashtags = getHashtags(translated.category);
-    const finalText = translated.text + "\n\n" + hashtags + AD_TEXT;
-    const result = await sendToTelegram(finalText, news.imageUrl);
+    const hashtags   = getHashtags(translated.category);
+    const finalText  = translated.text + "\n\n" + hashtags + AD_TEXT;
+    const result     = await sendToTelegram(finalText, news.imageUrl);
     if (result.ok) {
+      // ▶ Xotiraga qo'sh va diskka yozib qo'y
       sentTitles.add(news.title);
-      if (sentTitles.size > 500) sentTitles.delete(sentTitles.values().next().value);
+      saveSentTitles();
+      if (sentTitles.size > 1000) sentTitles.delete(sentTitles.values().next().value);
       dailyNews.push(news.title);
       sentToday++;
       lastSent = new Date().toISOString();
@@ -483,10 +513,8 @@ async function runDigest() {
   try {
     addLog("info", "Digest tayyorlanmoqda...");
     const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
-
     let digestText;
     if (dailyNews.length === 0) {
-      // Server restart bo'lsa yoki yangilik yo'q bo'lsa — umumiy digest
       addLog("warn", "dailyNews bo'sh, umumiy digest tayyorlanmoqda...");
       const prompt = `O'zbek Telegram kanali uchun bugungi kun yakuniy digest yoz (${today}).
 Dunyo, O'zbekiston, iqtisodiyot, sport, texnologiya mavzularini qamrab ol.
@@ -498,7 +526,7 @@ Format:
 Faqat tayyor post matnini yoz.`;
       digestText = await groqRequest(prompt, 1200);
     } else {
-      const list = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
+      const list   = dailyNews.slice(-20).map((n, i) => `${i+1}. ${n}`).join("\n");
       const prompt = `O'zbek Telegram kanali uchun kun yakunini yoz.
 Bugun yuborilgan yangiliklar:
 ${list}
@@ -513,7 +541,6 @@ Format:
 Faqat tayyor post matnini yoz.`;
       digestText = await groqRequest(prompt, 1500);
     }
-
     const fullText = digestText + AD_TEXT;
     const result = await sendToTelegram(fullText, null);
     if (result.ok) {
@@ -526,14 +553,16 @@ Faqat tayyor post matnini yoz.`;
   } finally { isRunning = false; }
 }
 
+// ════════════════════════════════════════════════════════
 // ROUTES
+// ════════════════════════════════════════════════════════
 app.get("/api/status", authMiddleware, async (req, res) => {
   const subs = await getSubscriberCount();
   res.json({
     ok: true, channel: CHANNEL_ID,
-    gemini: GROQ_KEY ? "✅" : "❌",
+    gemini:  GROQ_KEY     ? "✅" : "❌",
     newsApi: NEWS_API_KEY ? "✅" : "❌",
-    bot: BOT_TOKEN ? "✅" : "❌",
+    bot:     BOT_TOKEN    ? "✅" : "❌",
     sentToday, lastSent, isRunning, botPaused, startFromTomorrow,
     sentCount: sentTitles.size, dailyCount: dailyNews.length,
     subscribers: subs, settings,
@@ -541,9 +570,9 @@ app.get("/api/status", authMiddleware, async (req, res) => {
   });
 });
 
-app.post("/api/send-now", authMiddleware, async (req, res) => res.json(await runCycle()));
-app.post("/api/digest-now", authMiddleware, async (req, res) => res.json(await runDigest()));
-app.post("/api/clear-logs", authMiddleware, (req, res) => { clearLogs(); res.json({ ok: true }); });
+app.post("/api/send-now",    authMiddleware, async (req, res) => res.json(await runCycle()));
+app.post("/api/digest-now",  authMiddleware, async (req, res) => res.json(await runDigest()));
+app.post("/api/clear-logs",  authMiddleware, (req, res) => { clearLogs(); res.json({ ok: true }); });
 
 app.post("/api/toggle-bot", authMiddleware, (req, res) => {
   const { action } = req.body;
@@ -555,7 +584,7 @@ app.post("/api/toggle-bot", authMiddleware, (req, res) => {
     addLog("info", "Ertadan boshlab rejimi yoqildi");
   } else {
     botPaused = false; startFromTomorrow = false;
-    isRunning = false; // Eski stuck flag ni tozalash
+    isRunning = false;
     addLog("ok", "Bot ishga tushdi");
   }
   res.json({ ok: true, botPaused, startFromTomorrow });
@@ -598,7 +627,7 @@ app.post("/api/send-custom", authMiddleware, async (req, res) => {
   if (!text) return res.json({ ok: false, error: "Matn kerak" });
   try {
     const finalText = text + AD_TEXT;
-    const result = await sendToTelegram(finalText, imageUrl);
+    const result = await sendToTelegram(finalText, imageUrl || null);
     if (result.ok) { sentToday++; lastSent = new Date().toISOString(); }
     addLog(result.ok ? "ok" : "err", "Qo'lda: " + text.slice(0, 50));
     res.json(result);
@@ -615,15 +644,14 @@ app.post("/api/settings", authMiddleware, (req, res) => {
   res.json({ ok: true, settings });
 });
 
-// ─── POLL ──────────────────────────────────────────────────────────────────
+// POLL
 async function sendPoll(question, options, isAnonymous = true) {
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPoll`, {
-    method: "POST",
+    method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body:    JSON.stringify({
       chat_id: CHANNEL_ID,
-      question,
-      options,
+      question, options,
       is_anonymous: isAnonymous,
       allows_multiple_answers: false,
     }),
@@ -632,13 +660,13 @@ async function sendPoll(question, options, isAnonymous = true) {
   return res.json();
 }
 
-// Haftalik avtomatik poll — har shanba 19:00
+// Haftalik avtomatik poll
 cron.schedule("0 19 * * 6", async () => {
   if (botPaused) return;
   const polls = [
-    { question: "📊 So'nggi paytda narxlar siz uchun qanday o'zgardi?", options: ["📈 Sezilarli oshdi", "📉 Biroz tushdi", "➡️ O'zgarmadi", "🤷 Sezmaganman"] },
-    { question: "💼 Bugun iqtisodiy vaziyatni qanday baholaysiz?", options: ["😟 Yomon", "😐 O'rtacha", "🙂 Yaxshi", "😊 Juda yaxshi"] },
-    { question: "🛒 Oylik xarid xarajatlaringiz qanday o'zgardi?", options: ["⬆️ Ko'paydi", "⬇️ Kamaydi", "↔️ Bir xil", "🤔 Bilmayman"] },
+    { question: "📊 So'nggi paytda narxlar siz uchun qanday o'zgardi?", options: ["📈 Sezilarli oshdi","📉 Biroz tushdi","➡️ O'zgarmadi","🤷 Sezmaganman"] },
+    { question: "💼 Bugun iqtisodiy vaziyatni qanday baholaysiz?",       options: ["😟 Yomon","😐 O'rtacha","🙂 Yaxshi","😊 Juda yaxshi"] },
+    { question: "🛒 Oylik xarid xarajatlaringiz qanday o'zgardi?",       options: ["⬆️ Ko'paydi","⬇️ Kamaydi","↔️ Bir xil","🤔 Bilmayman"] },
   ];
   const poll = polls[Math.floor(Math.random() * polls.length)];
   const result = await sendPoll(poll.question, poll.options);
@@ -655,42 +683,30 @@ app.post("/api/send-poll", authMiddleware, async (req, res) => {
     res.json(result);
   } catch(e) { res.json({ ok: false, error: e.message }); }
 });
-// ───────────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  addLog("ok", `Server: http://localhost:${PORT}`);
-  addLog("info", `Kanal: ${CHANNEL_ID}`);
-  startCronJobs();
-  addLog("info", "Manbalar: Kun.uz + Daryo.uz + Xabarchi + Gazeta + Xabar + BBC + Podrobno + NewsAPI");
-});
-
-// ============ OB-HAVO VA DOLLAR KURSI ============
-
+// ════════════════════════════════════════════════════════
+// OB-HAVO VA DOLLAR KURSI
+// ════════════════════════════════════════════════════════
 const morningSettings = {
   weatherHour: 6,
-  rateHour: 6,
-  weatherText: null, // tahrirlangan matn
-  rateText: null,    // tahrirlangan matn
+  rateHour:    6,
+  weatherText: null,
+  rateText:    null,
 };
-
 let weatherCronJob = null;
-let rateCronJob = null;
+let rateCronJob    = null;
 
 function startMorningCrons() {
   if (weatherCronJob) weatherCronJob.stop();
-  if (rateCronJob) rateCronJob.stop();
-
+  if (rateCronJob)    rateCronJob.stop();
   weatherCronJob = cron.schedule(`0 ${morningSettings.weatherHour} * * *`, () => {
     addLog("info", `Ob-havo yuborilmoqda (${morningSettings.weatherHour}:00)...`);
     runWeather();
   });
-
   rateCronJob = cron.schedule(`0 ${morningSettings.rateHour} * * *`, () => {
     addLog("info", `Dollar kursi yuborilmoqda (${morningSettings.rateHour}:00)...`);
     runRate();
   });
-
   addLog("info", `Ob-havo: ${morningSettings.weatherHour}:00 | Kurs: ${morningSettings.rateHour}:00`);
 }
 
@@ -698,16 +714,15 @@ async function fetchWeather() {
   try {
     const res = await fetch("https://wttr.in/Tashkent?format=j1", { timeout: 8000 });
     const data = await res.json();
-    const cur = data.current_condition[0];
-    const temp = cur.temp_C;
-    const feels = cur.FeelsLikeC;
-    const desc = cur.lang_uz?.[0]?.value || cur.weatherDesc[0].value;
+    const cur  = data.current_condition[0];
+    const temp     = cur.temp_C;
+    const feels    = cur.FeelsLikeC;
+    const desc     = cur.lang_uz?.[0]?.value || cur.weatherDesc[0].value;
     const humidity = cur.humidity;
-    const wind = cur.windspeedKmph;
+    const wind     = cur.windspeedKmph;
     const tomorrow = data.weather[1];
-    const maxT = tomorrow.maxtempC;
-    const minT = tomorrow.mintempC;
-
+    const maxT     = tomorrow.maxtempC;
+    const minT     = tomorrow.mintempC;
     return { temp, feels, desc, humidity, wind, maxT, minT };
   } catch(e) {
     addLog("warn", "Ob-havo xato: " + e.message);
@@ -717,12 +732,12 @@ async function fetchWeather() {
 
 async function fetchRates() {
   try {
-    const res = await fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/", { timeout: 8000 });
+    const res  = await fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/", { timeout: 8000 });
     const data = await res.json();
     const find = (code) => data.find(r => r.Ccy === code);
-    const usd = find("USD");
-    const eur = find("EUR");
-    const rub = find("RUB");
+    const usd  = find("USD");
+    const eur  = find("EUR");
+    const rub  = find("RUB");
     return { usd: usd?.Rate, eur: eur?.Rate, rub: rub?.Rate };
   } catch(e) {
     addLog("warn", "Kurs xato: " + e.message);
@@ -734,7 +749,7 @@ function getWeatherEmoji(temp) {
   if (temp >= 35) return "🥵";
   if (temp >= 25) return "☀️";
   if (temp >= 15) return "⛅";
-  if (temp >= 5) return "🌥️";
+  if (temp >= 5)  return "🌥️";
   return "❄️";
 }
 
@@ -762,9 +777,9 @@ async function buildRateText(custom = null) {
   const r = await fetchRates();
   if (!r) throw new Error("Kurs ma'lumoti olinmadi");
   const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
-  const usd = Number(r.usd).toLocaleString("uz-UZ");
-  const eur = Number(r.eur).toLocaleString("uz-UZ");
-  const rub = (Number(r.rub) * 100).toFixed(0);
+  const usd   = Number(r.usd).toLocaleString("uz-UZ");
+  const eur   = Number(r.eur).toLocaleString("uz-UZ");
+  const rub   = (Number(r.rub) * 100).toFixed(0);
   return `💵 *Valyuta kurslari — ${today}*
 _(O'zbekiston Markaziy banki)_
 
@@ -776,25 +791,23 @@ _(O'zbekiston Markaziy banki)_
 ${AD_TEXT}`;
 }
 
-
 async function runMorningCombined(customWeather = null, customRate = null) {
   try {
     addLog("info", "Ertalab ob-havo va kurs birgalikda yuborilmoqda...");
     const [weatherText, rateText] = await Promise.all([
       buildWeatherText(customWeather || morningSettings.weatherText),
-      buildRateText(customRate || morningSettings.rateText),
+      buildRateText(customRate     || morningSettings.rateText),
     ]);
-    // Bitta xabarda birlashtirish
-    const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
+    const today        = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
     const cleanWeather = weatherText.split("📢")[0].trim();
-    const cleanRate = rateText.split("📢")[0].trim();
-    const sep = "─".repeat(25);
-    const combined = "🌅 *Xayrli tong! — " + today + "*\n\n" + cleanWeather + "\n\n" + sep + "\n\n" + cleanRate + AD_TEXT;
-    const result = await sendToTelegram(combined, null);
+    const cleanRate    = rateText.split("📢")[0].trim();
+    const sep          = "─".repeat(25);
+    const combined     = "🌅 *Xayrli tong! — " + today + "*\n\n" + cleanWeather + "\n\n" + sep + "\n\n" + cleanRate + AD_TEXT;
+    const result       = await sendToTelegram(combined, null);
     if (result.ok) {
-      addLog("ok", "Ertalab xabar birgalikda yuborildi ✓");
+      addLog("ok", "Ertalab xabar yuborildi ✓");
       morningSettings.weatherText = null;
-      morningSettings.rateText = null;
+      morningSettings.rateText    = null;
       return { ok: true, text: combined };
     } else throw new Error(result.description);
   } catch(e) {
@@ -805,7 +818,7 @@ async function runMorningCombined(customWeather = null, customRate = null) {
 
 async function runWeather(customText = null) {
   try {
-    const text = await buildWeatherText(customText || morningSettings.weatherText);
+    const text   = await buildWeatherText(customText || morningSettings.weatherText);
     const result = await sendToTelegram(text, null);
     if (result.ok) {
       addLog("ok", "Ob-havo yuborildi ✓");
@@ -820,7 +833,7 @@ async function runWeather(customText = null) {
 
 async function runRate(customText = null) {
   try {
-    const text = await buildRateText(customText || morningSettings.rateText);
+    const text   = await buildRateText(customText || morningSettings.rateText);
     const result = await sendToTelegram(text, null);
     if (result.ok) {
       addLog("ok", "Kurs yuborildi ✓");
@@ -833,28 +846,22 @@ async function runRate(customText = null) {
   }
 }
 
-// Morning routes
 app.get("/api/morning-status", authMiddleware, async (req, res) => {
   try {
-    const [weather, rate] = await Promise.all([fetchWeather(), fetchRates()]);
-    const weatherPreview = await buildWeatherText();
-    const ratePreview = await buildRateText();
+    const [weather, rate]             = await Promise.all([fetchWeather(), fetchRates()]);
+    const [weatherPreview, ratePreview] = await Promise.all([buildWeatherText(), buildRateText()]);
     res.json({ ok: true, weather, rate, weatherPreview, ratePreview, morningSettings });
   } catch(e) {
     res.json({ ok: false, error: e.message });
   }
 });
 
-app.post("/api/send-morning", authMiddleware, async (req, res) => {
-  res.json(await runMorningCombined());
-});
-
-app.post("/api/send-weather", authMiddleware, async (req, res) => {
+app.post("/api/send-morning",  authMiddleware, async (req, res) => res.json(await runMorningCombined()));
+app.post("/api/send-weather",  authMiddleware, async (req, res) => {
   const { customText } = req.body;
   res.json(await runWeather(customText || null));
 });
-
-app.post("/api/send-rate", authMiddleware, async (req, res) => {
+app.post("/api/send-rate",     authMiddleware, async (req, res) => {
   const { customText } = req.body;
   res.json(await runRate(customText || null));
 });
@@ -862,13 +869,23 @@ app.post("/api/send-rate", authMiddleware, async (req, res) => {
 app.post("/api/morning-settings", authMiddleware, (req, res) => {
   const { weatherHour, rateHour, weatherText, rateText } = req.body;
   if (weatherHour >= 4 && weatherHour <= 12) morningSettings.weatherHour = Number(weatherHour);
-  if (rateHour >= 4 && rateHour <= 12) morningSettings.rateHour = Number(rateHour);
+  if (rateHour    >= 4 && rateHour    <= 12) morningSettings.rateHour    = Number(rateHour);
   if (typeof weatherText === "string") morningSettings.weatherText = weatherText || null;
-  if (typeof rateText === "string") morningSettings.rateText = rateText || null;
+  if (typeof rateText    === "string") morningSettings.rateText    = rateText    || null;
   startMorningCrons();
   addLog("info", `Ertalab sozlandi: ob-havo ${morningSettings.weatherHour}:00, kurs ${morningSettings.rateHour}:00`);
   res.json({ ok: true, morningSettings });
 });
 
-// Start morning crons
-startMorningCrons();
+// ════════════════════════════════════════════════════════
+// START
+// ════════════════════════════════════════════════════════
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  addLog("ok", `Server: http://localhost:${PORT}`);
+  addLog("info", `Kanal: ${CHANNEL_ID}`);
+  addLog("info", `Eslab qolingan sarlavhalar: ${sentTitles.size} ta`);
+  startCronJobs();
+  startMorningCrons();
+  addLog("info", "Manbalar: Kun.uz + Daryo.uz + Xabarchi + Gazeta + Xabar + BBC + Podrobno + NewsAPI");
+});
